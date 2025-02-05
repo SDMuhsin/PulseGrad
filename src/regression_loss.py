@@ -50,6 +50,12 @@ class diffGrad(object):
         return x_new
 
 class Experimental(object):
+    """
+    ReweightedAdam Optimizer:
+    Combines the raw gradient and its exponential moving average
+    in the final step, avoiding friction-based scaling or direct
+    dependence on g_{t-1} - g_t.
+    """
     def __init__(self, lrn_rate, beta1, beta2, eps):
         self.lrn_rate = lrn_rate
         self.beta1 = beta1
@@ -58,32 +64,37 @@ class Experimental(object):
         self.idx = 0
         self.m = 0.0  # First moment
         self.v = 0.0  # Second moment
-        self.g_prev = 0.0
-        
+        self.g_prev = 0.0  # Not strictly needed, but kept for API consistency
+
     def update(self, x, g):
-        # Increment iteration counter
+        """
+        x: current parameter
+        g: current gradient
+        returns: updated parameter
+        """
         self.idx += 1
-        
-        # Compute friction coefficient
-        diff = np.abs(self.g_prev - g)
-        xi = 1.0 / (1.0 + np.exp(-diff))  # in [0.5, 1)
-        
-        # Update first moment with friction
-        self.m = self.beta1 * self.m + (1.0 - self.beta1) * xi * g
-        
-        # Update second moment with friction
-        self.v = self.beta2 * self.v + (1.0 - self.beta2) * xi * (g ** 2)
-        
-        # Bias corrections
-        m_hat = self.m / (1.0 - np.power(self.beta1, self.idx))
-        v_hat = self.v / (1.0 - np.power(self.beta2, self.idx))
-        
-        # Parameter update (standard Adam-style)
-        x_new = x - self.lrn_rate * m_hat / (np.sqrt(v_hat) + self.eps)
-        
-        # Store current gradient for next iteration
-        self.g_prev = g
-        
+
+        # Update moments (same as Adam)
+        self.m = self.beta1 * self.m + (1.0 - self.beta1) * g
+        self.v = self.beta2 * self.v + (1.0 - self.beta2) * (g ** 2)
+
+        # Bias correction
+        m_hat = self.m / (1.0 - self.beta1 ** self.idx)
+        v_hat = self.v / (1.0 - self.beta2 ** self.idx)
+
+        # Reweighting coefficient
+        # (Dimension-wise, for brevity, we show scalar code.)
+        # If using vector parameters, do element-wise operations below.
+        denom = np.abs(m_hat) + np.abs(g) + self.eps
+        lam = np.abs(g) / denom  # lam in [0, 1]
+
+        # Final effective gradient
+        u = (1.0 - lam) * m_hat + lam * g
+
+        # Parameter update
+        x_new = x - self.lrn_rate * u / (np.sqrt(v_hat) + self.eps)
+
+        self.g_prev = g  # retained for compatibility; not used here
         return x_new
 
 def fun1(x):
