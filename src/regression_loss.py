@@ -49,7 +49,7 @@ class diffGrad(object):
         self.g_prev = g
         return x_new
 
-class Experimental(object):
+class ReweightedAdam(object):
     """
     ReweightedAdam Optimizer:
     Combines the raw gradient and its exponential moving average
@@ -95,6 +95,53 @@ class Experimental(object):
         x_new = x - self.lrn_rate * u / (np.sqrt(v_hat) + self.eps)
 
         self.g_prev = g  # retained for compatibility; not used here
+        return x_new
+class Experimental(object):
+    def __init__(self, lrn_rate, beta1, beta2, eps, lam=1.0):
+        """
+        :param lrn_rate: Learning rate (alpha)
+        :param beta1: Exponential decay rate for first moment
+        :param beta2: Exponential decay rate for second moment
+        :param eps: Small constant to avoid division by zero
+        :param lam: Logistic rate parameter controlling how quickly scale saturates
+        """
+        self.lrn_rate = lrn_rate
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.eps = eps
+        self.lam = lam
+        
+        self.idx = 0
+        self.m = 0.0  # 1st order moment
+        self.v = 0.0  # 2nd order moment
+
+    def update(self, x, g):
+        """
+        Performs one update step of the Experimental optimizer.
+
+        :param x: Current parameter value
+        :param g: Current gradient
+        :return: Updated parameter value
+        """
+        # Increment iteration
+        self.idx += 1
+
+        # Standard Adam updates for moments
+        self.m = self.beta1 * self.m + (1.0 - self.beta1) * g
+        self.v = self.beta2 * self.v + (1.0 - self.beta2) * (g ** 2)
+
+        # Bias-corrected estimates
+        m_hat = self.m / (1.0 - np.power(self.beta1, self.idx))
+        v_hat = self.v / (1.0 - np.power(self.beta2, self.idx))
+
+        # Proposed scaling factor based on delta = g - m
+        delta = g - self.m
+        # A logistic-based scale factor in (0, 1], saturates if |delta| is large
+        scale = 1.0 / (1.0 + np.exp(self.lam * np.abs(delta)))
+
+        # Final update
+        x_new = x - self.lrn_rate * scale * (m_hat / (np.sqrt(v_hat) + self.eps))
+
         return x_new
 
 def fun1(x):
