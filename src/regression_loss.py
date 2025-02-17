@@ -96,7 +96,8 @@ class ReweightedAdam(object):
 
         self.g_prev = g  # retained for compatibility; not used here
         return x_new
-class Experimental(object):
+
+class AdaDeltaGradV1(object):
     def __init__(self, lrn_rate, beta1, beta2, eps, lam=1.0):
         """
         :param lrn_rate: Learning rate (alpha)
@@ -142,6 +143,58 @@ class Experimental(object):
         # Final update
         x_new = x - self.lrn_rate * scale * (m_hat / (np.sqrt(v_hat) + self.eps))
 
+        return x_new
+
+class Experimental(object):
+    def __init__(self, lrn_rate, beta1, beta2, eps, lam=1.0):
+        """
+        :param lrn_rate: Learning rate (alpha)
+        :param beta1: Exponential decay rate for first moment
+        :param beta2: Exponential decay rate for second moment
+        :param eps: Small constant to avoid division by zero
+        :param lam: Logistic rate parameter controlling scaling saturation
+        """
+        self.lrn_rate = lrn_rate
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.eps = eps
+        self.lam = lam
+
+        self.idx = 0
+        self.m = 0.0  # First moment
+        self.v = 0.0  # Second moment
+
+    def update(self, x, g):
+        """
+        Performs one update step using Nesterov-accelerated momentum scaled by a logistic factor.
+        
+        :param x: Current parameter value
+        :param g: Current gradient
+        :return: Updated parameter value
+        """
+        # Increment iteration counter
+        self.idx += 1
+
+        # Update biased first and second moments (Adam style)
+        self.m = self.beta1 * self.m + (1.0 - self.beta1) * g
+        self.v = self.beta2 * self.v + (1.0 - self.beta2) * (g ** 2)
+
+        # Bias correction
+        m_hat = self.m / (1.0 - np.power(self.beta1, self.idx))
+        v_hat = self.v / (1.0 - np.power(self.beta2, self.idx))
+
+        # Logistic scaling factor based on the difference between current gradient and momentum
+        # (Preserves stability by damping when there's significant deviation)
+        delta = g - self.m
+        scale = 1.0 / (1.0 + np.exp(self.lam * np.abs(delta)))
+
+        # Incorporate Nesterov acceleration: Lookahead gradient term
+        # This term accelerates convergence in stable regions (when scale ~ 1)
+        m_nesterov = self.beta1 * m_hat + ((1.0 - self.beta1) * g) / (1.0 - np.power(self.beta1, self.idx))
+
+        # Final parameter update with Nesterov acceleration and logistic scaling
+        x_new = x - self.lrn_rate * scale * (m_nesterov / (np.sqrt(v_hat) + self.eps))
+        
         return x_new
 
 def fun1(x):
