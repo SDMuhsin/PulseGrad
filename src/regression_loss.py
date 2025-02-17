@@ -145,7 +145,7 @@ class AdaDeltaGradV1(object):
 
         return x_new
 
-class Experimental(object):
+class LANCE(object):
     def __init__(self, lrn_rate, beta1, beta2, eps, lam=1.0):
         """
         :param lrn_rate: Learning rate (alpha)
@@ -194,6 +194,47 @@ class Experimental(object):
 
         # Final parameter update with Nesterov acceleration and logistic scaling
         x_new = x - self.lrn_rate * scale * (m_nesterov / (np.sqrt(v_hat) + self.eps))
+        
+        return x_new
+class Experimental(object):
+    def __init__(self, lrn_rate, beta1, beta2, eps):
+        self.lrn_rate = lrn_rate
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.eps = eps
+        self.idx = 0
+        self.m = 0.0  # 1st moment
+        self.v = 0.0  # 2nd moment
+        self.m_prev = 0.0  # to store previous momentum for cosine similarity
+        
+        # Parameters for the modulation factor
+        self.epsilon_prime = 0.5  # lower bound for modulation (ensures psi in [0.5, 1])
+        self.epsilon0 = 1e-8      # small constant to avoid division by zero in cosine similarity
+
+    def update(self, x, g):
+        self.idx += 1
+        
+        # Update first and second moments as in Adam
+        self.m = self.beta1 * self.m + (1.0 - self.beta1) * g
+        self.v = self.beta2 * self.v + (1.0 - self.beta2) * (g ** 2)
+        
+        m_hat = self.m / (1.0 - np.power(self.beta1, self.idx))
+        v_hat = self.v / (1.0 - np.power(self.beta2, self.idx))
+        
+        # Compute the modulation factor psi based on cosine similarity between m_prev and current g
+        # If either value is near zero, default to psi = 1 for stability.
+        if np.abs(self.m_prev) < self.epsilon0 or np.abs(g) < self.epsilon0:
+            psi = 1.0
+        else:
+            cos_sim = (self.m_prev * g) / (np.abs(self.m_prev) * np.abs(g) + self.epsilon0)
+            # Ensure non-negativity and blend with epsilon_prime to keep psi in [epsilon_prime, 1]
+            psi = self.epsilon_prime + (1 - self.epsilon_prime) * max(0.0, cos_sim)
+        
+        # Parameter update using the modulated step size
+        x_new = x - self.lrn_rate * m_hat * psi / (np.sqrt(v_hat) + self.eps)
+        
+        # Update m_prev for the next iteration
+        self.m_prev = self.m
         
         return x_new
 
