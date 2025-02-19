@@ -9,7 +9,7 @@ import numpy as np
 from experimental.lance import LANCE
 from experimental.diffgrad import diffgrad
 from experimental.cosmic import COSMIC
-
+from experimental.exp import Experimental
 # ------------------------------
 # Set seeds for reproducibility
 seed = 42
@@ -58,7 +58,8 @@ criterion = nn.CrossEntropyLoss()
 #optimizer = optim.Adam(model.parameters(), lr=0.001)
 #optimizer = LANCE(model.parameters(),lr=0.001) 
 #optimizer = diffgrad(model.parameters(),lr=0.001) 
-optimizer = COSMIC(model.parameters(),lr=0.001) 
+#optimizer = COSMIC(model.parameters(),lr=0.001) 
+optimizer = Experimental(model.parameters(),lr=0.001) 
 # ------------------------------
 # Training loop
 num_epochs = 10

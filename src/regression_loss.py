@@ -196,47 +196,44 @@ class LANCE(object):
         x_new = x - self.lrn_rate * scale * (m_nesterov / (np.sqrt(v_hat) + self.eps))
         
         return x_new
+
+
 class Experimental(object):
-    def __init__(self, lrn_rate, beta1, beta2, eps):
+    def __init__(self, lrn_rate, beta1, beta2, beta3=0.95, eps=1e-8):
         self.lrn_rate = lrn_rate
         self.beta1 = beta1
         self.beta2 = beta2
+        self.beta3 = beta3  # New adaptation rate
         self.eps = eps
         self.idx = 0
-        self.m = 0.0  # 1st moment
-        self.v = 0.0  # 2nd moment
-        self.m_prev = 0.0  # to store previous momentum for cosine similarity
-        
-        # Parameters for the modulation factor
-        self.epsilon_prime = 0.5  # lower bound for modulation (ensures psi in [0.5, 1])
-        self.epsilon0 = 1e-8      # small constant to avoid division by zero in cosine similarity
+        self.m = 0.0
+        self.v = 0.0
+        self.g_prev = 0.0
+        self.k = 1.0  # Initial scaling factor
 
     def update(self, x, g):
         self.idx += 1
-        
-        # Update first and second moments as in Adam
         self.m = self.beta1 * self.m + (1.0 - self.beta1) * g
-        self.v = self.beta2 * self.v + (1.0 - self.beta2) * (g ** 2)
+        self.v = self.beta2 * self.v + (1.0 - self.beta2) * g ** 2
+        m_adj = self.m / (1.0 - np.power(self.beta1, self.idx))
+        v_adj = self.v / (1.0 - np.power(self.beta2, self.idx))
         
-        m_hat = self.m / (1.0 - np.power(self.beta1, self.idx))
-        v_hat = self.v / (1.0 - np.power(self.beta2, self.idx))
+        delta_g = self.g_prev - g
+        abs_delta = np.abs(delta_g)
         
-        # Compute the modulation factor psi based on cosine similarity between m_prev and current g
-        # If either value is near zero, default to psi = 1 for stability.
-        if np.abs(self.m_prev) < self.epsilon0 or np.abs(g) < self.epsilon0:
-            psi = 1.0
-        else:
-            cos_sim = (self.m_prev * g) / (np.abs(self.m_prev) * np.abs(g) + self.epsilon0)
-            # Ensure non-negativity and blend with epsilon_prime to keep psi in [epsilon_prime, 1]
-            psi = self.epsilon_prime + (1 - self.epsilon_prime) * max(0.0, cos_sim)
+        # Update scaling factor
+        self.k = self.beta3 * self.k + (1.0 - self.beta3) * abs_delta
         
-        # Parameter update using the modulated step size
-        x_new = x - self.lrn_rate * m_hat * psi / (np.sqrt(v_hat) + self.eps)
+        # Compute adaptive friction coefficient
+        dfc = 1.0 / (1.0 + np.exp(-self.k * abs_delta))
         
-        # Update m_prev for the next iteration
-        self.m_prev = self.m
-        
+        x_new = x - self.lrn_rate * m_adj * dfc / (np.sqrt(v_adj) + self.eps)
+        self.g_prev = g
         return x_new
+
+
+
+
 
 def fun1(x):
     if x <= 0:
