@@ -199,38 +199,40 @@ class LANCE(object):
 
 
 class Experimental(object):
-    def __init__(self, lrn_rate, beta1, beta2, beta3=0.95, eps=1e-8):
+    def __init__(self, lrn_rate, beta1, beta2, gamma=0.3, eps=1e-8):
         self.lrn_rate = lrn_rate
         self.beta1 = beta1
         self.beta2 = beta2
-        self.beta3 = beta3  # New adaptation rate
+        self.gamma = gamma  # New regularization strength
         self.eps = eps
         self.idx = 0
         self.m = 0.0
         self.v = 0.0
         self.g_prev = 0.0
-        self.k = 1.0  # Initial scaling factor
 
     def update(self, x, g):
         self.idx += 1
+        delta_g = self.g_prev - g
+        
+        # Update first moment
         self.m = self.beta1 * self.m + (1.0 - self.beta1) * g
-        self.v = self.beta2 * self.v + (1.0 - self.beta2) * g ** 2
+        
+        # Enhanced second moment with gradient difference regularization
+        grad_sq = g ** 2
+        delta_sq = delta_g ** 2
+        self.v = self.beta2 * self.v + (1.0 - self.beta2) * (grad_sq + self.gamma * delta_sq)
+        
+        # Bias correction
         m_adj = self.m / (1.0 - np.power(self.beta1, self.idx))
         v_adj = self.v / (1.0 - np.power(self.beta2, self.idx))
         
-        delta_g = self.g_prev - g
-        abs_delta = np.abs(delta_g)
+        # Friction coefficient (original DiffGrad formulation)
+        dfc = 1.0 / (1.0 + np.exp(-np.abs(delta_g)))
         
-        # Update scaling factor
-        self.k = self.beta3 * self.k + (1.0 - self.beta3) * abs_delta
-        
-        # Compute adaptive friction coefficient
-        dfc = 1.0 / (1.0 + np.exp(-self.k * abs_delta))
-        
+        # Update rule
         x_new = x - self.lrn_rate * m_adj * dfc / (np.sqrt(v_adj) + self.eps)
         self.g_prev = g
         return x_new
-
 
 
 
