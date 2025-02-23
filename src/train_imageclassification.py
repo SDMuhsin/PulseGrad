@@ -349,15 +349,37 @@ def main():
         f"{std_f1_epoch:.2f}",
     ]
 
-    # If file doesn't exist, write header
     file_exists = os.path.isfile(csv_file)
-    with open(csv_file, 'a', newline='') as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(header)
-        writer.writerow(row)
+    rows = []
 
-    print(f"\nResults saved to {csv_file}")
+    # If file exists, read it in and filter out any row that has exactly the same combo of
+    # [dataset, model, optimizer, epochs, batch_size, lr, k_folds]
+    if file_exists:
+        with open(csv_file, 'r') as f:
+            reader = csv.reader(f)
+            existing_header = next(reader, None)  # Read header row
+            for existing_row in reader:
+                if (existing_row[1] == args.dataset and
+                    existing_row[2] == args.model and
+                    existing_row[3] == args.optimizer and
+                    existing_row[4] == str(args.epochs) and
+                    existing_row[5] == str(args.batch_size) and
+                    existing_row[6] == str(args.lr) and
+                    existing_row[7] == str(args.k_folds)):
+                    # Skip this row to overwrite
+                    continue
+                rows.append(existing_row)
+
+    # Append the newly computed row
+    rows.append(row)
+
+    # Write everything back, including the header
+    with open(csv_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        writer.writerows(rows)
+
+    print(f"\nResults saved (overwritten if matching combo) to {csv_file}")
 
 if __name__ == '__main__':
     main()
