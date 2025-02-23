@@ -1,6 +1,7 @@
 env
 results
 data
+downloads
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

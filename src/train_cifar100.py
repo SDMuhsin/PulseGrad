@@ -57,9 +57,9 @@ model = model.to(device)
 criterion = nn.CrossEntropyLoss()
 #optimizer = optim.Adam(model.parameters(), lr=0.001)
 #optimizer = LANCE(model.parameters(),lr=0.001) 
-#optimizer = diffgrad(model.parameters(),lr=0.002) 
+optimizer = diffgrad(model.parameters(),lr=0.001) 
 #optimizer = COSMIC(model.parameters(),lr=0.001) 
-optimizer = Experimental(model.parameters(),lr=0.002) 
+#optimizer = Experimental(model.parameters(),lr=0.001) 
 # ------------------------------
 # Training loop
 num_epochs = 10
