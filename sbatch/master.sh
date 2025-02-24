@@ -29,7 +29,7 @@ for dataset in "${!pairs[@]}"; do
             --cpus-per-task=1 \
             --gpus=1 \
             --mem=8000M \
-            --time=0-01:00 \
+            --time=3:00:00 \
             --chdir=/scratch/sdmuhsin/DiffGrad2 \
             --output=${optimizer}-${model_filename}-${dataset}-%N-%j.out \
             --wrap="
