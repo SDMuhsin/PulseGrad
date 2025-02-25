@@ -35,7 +35,7 @@ def get_dataset(dataset_name, transform, root='./data'):
         num_classes = 10
 
     elif dataset_name == 'mnist':
-        # MNIST and FMNIST are grayscale so convert them to RGB
+        # MNIST and FMNIST are grayscale, so convert them to RGB
         train_set = torchvision.datasets.MNIST(root=root, train=True, download=True, transform=transform)
         test_set  = torchvision.datasets.MNIST(root=root, train=False, download=True, transform=transform)
         num_classes = 10
@@ -46,7 +46,7 @@ def get_dataset(dataset_name, transform, root='./data'):
         num_classes = 10
 
     elif dataset_name == 'stl10':
-        # STL10 has splits 'train' and 'test' for labeled data.
+        # STL10 has splits 'train' and 'test' for labeled data
         train_set = torchvision.datasets.STL10(root=root, split='train', download=True, transform=transform)
         test_set  = torchvision.datasets.STL10(root=root, split='test', download=True, transform=transform)
         num_classes = 10
@@ -61,8 +61,13 @@ def get_model(model_name, num_classes):
     Load a pretrained model and modify its final layer for num_classes.
     """
     model_name = model_name.lower()
+
     if model_name == 'resnet18':
         model = torchvision.models.resnet18(pretrained=True)
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
+
+    elif model_name == 'resnet50':
+        model = torchvision.models.resnet50(pretrained=True)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif model_name == 'squeezenet1_0':
@@ -71,10 +76,37 @@ def get_model(model_name, num_classes):
         model.classifier[1] = nn.Conv2d(512, num_classes, kernel_size=(1, 1))
         model.num_classes = num_classes
 
+    elif model_name == 'alexnet':
+        model = torchvision.models.alexnet(pretrained=True)
+        # The last linear layer is at index 6 of the classifier
+        model.classifier[6] = nn.Linear(model.classifier[6].in_features, num_classes)
+
+    elif model_name == 'vgg16':
+        model = torchvision.models.vgg16(pretrained=True)
+        # The last linear layer is at index 6 of the classifier
+        model.classifier[6] = nn.Linear(model.classifier[6].in_features, num_classes)
+
+    elif model_name == 'densenet161':
+        model = torchvision.models.densenet161(pretrained=True)
+        model.classifier = nn.Linear(model.classifier.in_features, num_classes)
+
+    elif model_name == 'googlenet':
+        # Disable auxiliary classifiers for simplicity
+        model = torchvision.models.googlenet(pretrained=True, aux_logits=False)
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
+
+    elif model_name == 'shufflenet_v2_x1_0':
+        model = torchvision.models.shufflenet_v2_x1_0(pretrained=True)
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
+
+    elif model_name == 'mobilenet_v2':
+        model = torchvision.models.mobilenet_v2(pretrained=True)
+        # The final layer is classifier[1]
+        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+
     elif model_name == 'vit_b_16':
         model = torchvision.models.vit_b_16(pretrained=True)
-        # For recent versions, the classification head is stored in model.heads.
-        # Handle both cases: when heads is a Sequential with one element or more.
+        # Adjust the classification head for ViT
         if isinstance(model.heads, nn.Sequential):
             if len(model.heads) == 1:
                 in_features = model.heads[0].in_features
@@ -85,7 +117,7 @@ def get_model(model_name, num_classes):
             else:
                 raise ValueError("Unexpected structure of model.heads for vit_b_16.")
         else:
-            # If model.heads is not a Sequential container, assume it's a Linear layer.
+            # If model.heads is not a Sequential container, assume it's a single Linear layer
             in_features = model.heads.in_features
             model.heads = nn.Linear(in_features, num_classes)
 
@@ -131,7 +163,6 @@ def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device
       best_acc, best_f1, best_acc_epoch, best_f1_epoch
     where those metrics are the best (highest) observed during training.
     """
-
     best_acc = 0.0
     best_f1 = 0.0
     best_acc_epoch = 0
@@ -208,7 +239,19 @@ def main():
                         choices=['CIFAR100', 'CIFAR10', 'MNIST', 'FMNIST', 'STL10'],
                         help="Dataset to use")
     parser.add_argument('--model', type=str, default='resnet18',
-                        choices=['resnet18', 'squeezenet1_0', 'vit_b_16', 'efficientnet_v2_s'],
+                        choices=[
+                            'resnet18',
+                            'resnet50',
+                            'squeezenet1_0',
+                            'alexnet',
+                            'vgg16',
+                            'densenet161',
+                            'googlenet',
+                            'shufflenet_v2_x1_0',
+                            'mobilenet_v2',
+                            'vit_b_16',
+                            'efficientnet_v2_s'
+                        ],
                         help="Model architecture to use")
     parser.add_argument('--optimizer', type=str, default='adam',
                         choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'diffgrad'],
