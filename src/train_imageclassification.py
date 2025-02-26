@@ -169,6 +169,10 @@ def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device
     best_f1_epoch = 0
 
     for epoch in range(1, epochs + 1):
+
+        if epoch == int(0.8 * epochs) + 1:
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = 1e-4
         # -------------------- TRAIN --------------------
         model.train()
         running_loss = 0.0
