@@ -5,7 +5,7 @@ echo "Beginning train_imageclassification.py sbatch script submissions."
 # Define dataset-model pairs based on task difficulty and model size
 declare -A pairs
 #pairs["MNIST"]="squeezenet1_0"
-#pairs["FMNIST"]="resnet18"
+pairs["FMNIST"]="resnet18"
 #pairs["CIFAR10"]="vgg16"
 #pairs["CIFAR100"]="vit_b_16"
 #pairs["STL10"]="efficientnet_v2_s"
