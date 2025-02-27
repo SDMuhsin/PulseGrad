@@ -172,7 +172,7 @@ def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device
 
         if epoch == int(0.8 * epochs) + 1:
             for param_group in optimizer.param_groups:
-                param_group['lr'] = 1e-4
+                param_group['lr'] = param_group['lr'] * 0.1
         # -------------------- TRAIN --------------------
         model.train()
         running_loss = 0.0
@@ -230,6 +230,11 @@ def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device
         if val_f1 > best_f1:
             best_f1 = val_f1
             best_f1_epoch = epoch
+        
+        # TEMP : 
+        if (epoch == epochs):
+            best_acc = val_acc
+            best_f1 = val_f1
 
         print(f"Epoch [{epoch}/{epochs}] "
               f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% | "
