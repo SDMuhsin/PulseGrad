@@ -231,10 +231,6 @@ def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device
             best_f1 = val_f1
             best_f1_epoch = epoch
         
-        # TEMP : 
-        if (epoch == epochs):
-            best_acc = val_acc
-            best_f1 = val_f1
 
         print(f"Epoch [{epoch}/{epochs}] "
               f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}% | "
