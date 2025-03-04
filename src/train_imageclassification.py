@@ -64,58 +64,6 @@ def get_model(model_name, num_classes):
 
     if model_name == 'resnet18':
         model = torchvision.models.resnet18(pretrained=True)
-import os
-import ast
-import timm
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-from torch.utils.data import Dataset, DataLoader
-import pandas as pd
-import cv2
-from sklearn.model_selection import StratifiedKFold
-import numpy as np
-from tqdm import tqdm
-from sklearn.metrics import mean_absolute_error
-
-# Define device and ensure using cuda:1
-device = torch.device("cuda:1")
-
-# Ensure results directory exists
-os.makedirs("./results", exist_ok=True)
-
-# 1. Read + Prepare Train Data
-train = pd.read_csv("./data/Train.csv")
-
-# Create placement and img_origin mappers just like the original code
-placement_mapper = train[["ID", "placement"]].drop_duplicates().set_index("ID").to_dict()
-img_origin_mapper = train[["ID", "img_origin"]].drop_duplicates().set_index("ID").to_dict()
-
-# -- We now aggregate polygons by ID so we can draw them all on one mask --
-# Group polygons into lists under each ID
-poly_agg = train.groupby("ID")["polygon"].agg(list).reset_index(name="polygons")
-
-# Aggregate by ID to get sums for boil_nbr and pan_nbr
-train_df = train.groupby("ID", as_index=False).sum()[["ID", "boil_nbr", "pan_nbr"]]
-
-# Map back img_origin and placement
-train_df["img_origin"] = train_df["ID"].map(img_origin_mapper["img_origin"])
-train_df["placement"] = train_df["ID"].map(placement_mapper["placement"])
-train_df["path"] = "./data/images/" + train_df["ID"] + ".jpg"
-
-# Merge the aggregated polygon lists so each ID has a single polygons field
-train_df = train_df.merge(poly_agg, on="ID", how="left")
-
-# For StratifiedKFold (like original code)
-train_df["stratify_label"] = train_df[["boil_nbr", "pan_nbr"]].sum(axis=1)
-skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-train_df["fold"] = -1
-for f, (_, val_idx) in enumerate(skf.split(train_df, train_df["stratify_label"])):
-    train_df.loc[val_idx, "fold"] = f
-        model.fc = nn.Linear(model.fc.in_features, num_classes)
-
     elif model_name == 'resnet50':
         model = torchvision.models.resnet50(pretrained=True)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
@@ -137,7 +85,7 @@ for f, (_, val_idx) in enumerate(skf.split(train_df, train_df["stratify_label"])
         model.classifier[6] = nn.Linear(model.classifier[6].in_features, num_classes)
 
     elif model_name == 'densenet161':
-        model = torchvision.models.densenet161(pretrained=True)
+        model = torchvision.models.densenet121(pretrained=True)
         model.classifier = nn.Linear(model.classifier.in_features, num_classes)
 
     elif model_name == 'googlenet':
