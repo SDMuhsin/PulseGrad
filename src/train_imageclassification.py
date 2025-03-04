@@ -84,7 +84,7 @@ def get_model(model_name, num_classes):
         # The last linear layer is at index 6 of the classifier
         model.classifier[6] = nn.Linear(model.classifier[6].in_features, num_classes)
 
-    elif model_name == 'densenet161':
+    elif model_name == 'densenet121':
         model = torchvision.models.densenet121(pretrained=True)
         model.classifier = nn.Linear(model.classifier.in_features, num_classes)
 
@@ -248,7 +248,7 @@ def main():
                             'squeezenet1_0',
                             'alexnet',
                             'vgg16',
-                            'densenet161',
+                            'densenet121',
                             'googlenet',
                             'shufflenet_v2_x1_0',
                             'mobilenet_v2',

@@ -6,7 +6,7 @@ echo "Beginning train_imageclassification.py sbatch script submissions."
 declare -A pairs
 #pairs["MNIST"]="squeezenet1_0"
 #pairs["FMNIST"]="resnet50"
-pairs["CIFAR10"]="resnet50"
+pairs["CIFAR10"]="densenet121"
 #pairs["CIFAR100"]="vit_b_16"
 #pairs["STL10"]="efficientnet_v2_s"
 
