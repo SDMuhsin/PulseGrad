@@ -6,8 +6,8 @@ echo "Beginning train_imageclassification.py sbatch script submissions."
 declare -A pairs
 #pairs["MNIST"]="squeezenet1_0"
 #pairs["FMNIST"]="resnet50"
-#pairs["CIFAR10"]="densenet161"
-pairs["CIFAR100"]="vit_b_16"
+pairs["CIFAR10"]="resnet50"
+#pairs["CIFAR100"]="vit_b_16"
 #pairs["STL10"]="efficientnet_v2_s"
 
 # List of optimizers to loop through
