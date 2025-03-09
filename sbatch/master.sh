@@ -42,7 +42,7 @@ for dataset in "${!pairs[@]}"; do
                 echo 'Environment loaded'
                 which python3
                 export PYTHONPATH=\"\$PYTHONPATH:\$(pwd)\"
-                python3 src/train_imageclassification.py --dataset=$dataset --model=$model --optimizer=$optimizer --epochs=100 --batch_size=64 --lr=0.0001 
+                python3 src/train_imageclassification.py --dataset=$dataset --model=$model --optimizer=$optimizer --epochs=100 --batch_size=64 --lr=0.0003 
             "
     done
 done
