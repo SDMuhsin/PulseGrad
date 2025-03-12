@@ -4,10 +4,10 @@ export TASK_NAME=mrpc
 export HF_HOME=./data
 export TORCH_HOME=./data
 
-python ./src/run_glue.py \
-  --model_name_or_path distilbert-base-uncased \
-  --task_name $TASK_NAME \
-  --max_length 128 \
-  --per_device_train_batch_size 32 \
-  --learning_rate 2e-5 \
-  --num_train_epochs 3 
+python ./src/train_glue.py \
+    --task_name mrpc \
+    --model_name_or_path distilbert-base-uncased \
+    --optimizer amsgrad \
+    --epochs 3 \
+    --lr 1e-5 \
+    --batch_size 8
