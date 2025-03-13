@@ -98,12 +98,14 @@ def main():
             # Attempt to format metrics as floats if possible
             # (the CSV is stored as strings)
             if col not in standard_columns:
-                # Try to parse as float
-                try:
-                    val_float = float(val)
-                    val = f"{val_float:.4f}"
-                except ValueError:
-                    pass
+                if val is None or val == "":
+                    val = ""
+                else:
+                    try:
+                        val_float = float(val)
+                        val = f"{val_float:.4f}"
+                    except ValueError:
+                        pass
             row_list.append(val)
         table_data.append(row_list)
 

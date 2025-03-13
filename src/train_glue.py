@@ -38,13 +38,7 @@ from experimental.exp import Experimental
 ###############################################################################
 # Stub implementations for custom optimizers. Replace with your own if needed.
 ###############################################################################
-class Experimental(optim.Optimizer):
-    def __init__(self, params, lr=1e-3):
-        raise NotImplementedError("Replace with your custom Experimental optimizer code.")
 
-class diffgrad(optim.Optimizer):
-    def __init__(self, params, lr=1e-3):
-        raise NotImplementedError("Replace with your custom diffgrad optimizer code.")
 ###############################################################################
 
 def get_optimizer(optimizer_name, model_params, lr):
@@ -292,7 +286,7 @@ def main():
     args = parse_args()
 
     # Prepare seeds; you can customize as desired
-    seeds = [41, 42, 43, 44, 45]
+    seeds = [41,42,43,44,45]
     results_for_seeds = []
     
     for sd in seeds:
@@ -327,7 +321,8 @@ def main():
     os.makedirs("./results", exist_ok=True)
     output_csv = "./results/glue.csv"
     # We'll have columns: task_name, optimizer, epochs, batch_size, lr, plus whatever metrics appear
-    fieldnames = ["task_name", "optimizer", "epochs", "batch_size", "lr"] + sorted(list(all_keys))
+    ALL_GLUE_METRICS = ["accuracy", "f1", "matthews_correlation", "pearson", "spearmanr"]
+    fieldnames = ["task_name", "optimizer", "epochs", "batch_size", "lr"] + ALL_GLUE_METRICS # sorted(list(all_keys))
 
     # If file doesn't exist, create it with header
     file_exists = os.path.isfile(output_csv)
@@ -343,8 +338,9 @@ def main():
             "batch_size": args.batch_size,
             "lr": args.lr
         }
-        for k in all_keys:
-            row_dict[k] = median_results[k]
+        # For every expected metric, fill in the value if present; else leave blank.
+        for metric in ALL_GLUE_METRICS:
+            row_dict[metric] = median_results.get(metric, "")
         writer.writerow(row_dict)
 
     print(f"Median results across seeds stored in {output_csv}.")
