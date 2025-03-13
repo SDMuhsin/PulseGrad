@@ -3,7 +3,7 @@
 echo "Beginning train_glue.py sbatch script submissions."
 
 
-for dataset in mrpc rte cola stsb qnli qqp mnli sst2; do
+for dataset in mrpc; do # rte cola stsb qnli qqp mnli sst2; do
     case $dataset in
 	mrpc|rte|stsb|cola)
 	    time_req="1-00:00"
