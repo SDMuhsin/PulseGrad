@@ -140,12 +140,15 @@ def run_single_training(task_name, model_name_or_path, optimizer_name, lr, epoch
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     config.pad_token_id = tokenizer.pad_token_id
-
+    
+    '''
     model = AutoModelForSequenceClassification.from_pretrained(
         model_name_or_path,
         config=config,
         ignore_mismatched_sizes=ignore_mismatched_sizes
-    )
+    )'''
+    model = AutoModelForSequenceClassification.from_config(config)
+
 
     sentence1_key, sentence2_key = task_to_keys[task_name]
 
@@ -320,9 +323,11 @@ def main():
     # Now let's store them to ./results/glue.csv
     os.makedirs("./results", exist_ok=True)
     output_csv = "./results/glue.csv"
-    # We'll have columns: task_name, optimizer, epochs, batch_size, lr, plus whatever metrics appear
+
+
+    # We'll have columns: model_name_or_path, task_name, optimizer, epochs, batch_size, lr, plus whatever metrics appear
     ALL_GLUE_METRICS = ["accuracy", "f1", "matthews_correlation", "pearson", "spearmanr"]
-    fieldnames = ["task_name", "optimizer", "epochs", "batch_size", "lr"] + ALL_GLUE_METRICS # sorted(list(all_keys))
+    fieldnames = ["model_name_or_path", "task_name", "optimizer", "epochs", "batch_size", "lr"] + ALL_GLUE_METRICS
 
     # If file doesn't exist, create it with header
     file_exists = os.path.isfile(output_csv)
@@ -332,6 +337,7 @@ def main():
             writer.writeheader()
 
         row_dict = {
+            "model_name_or_path": args.model_name_or_path,
             "task_name": args.task_name,
             "optimizer": args.optimizer,
             "epochs": args.epochs,
@@ -345,6 +351,8 @@ def main():
 
     print(f"Median results across seeds stored in {output_csv}.")
     print("Done.")
+
+
 
 if __name__ == "__main__":
     main()

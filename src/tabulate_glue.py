@@ -83,7 +83,7 @@ def main():
 
     # Construct the table for display.
     # We always want to show the standard columns in front:
-    standard_columns = ["task_name", "optimizer", "epochs", "batch_size", "lr"]
+    standard_columns = [ "model_name_or_path", "task_name", "optimizer", "epochs", "batch_size", "lr"]
     metric_columns = [c for c in fieldnames if c not in standard_columns]
 
     # The final display order of columns:

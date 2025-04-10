@@ -69,7 +69,7 @@ def get_model(model_name, num_classes):
         model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif model_name == 'squeezenet1_0':
-        model = torchvision.models.squeezenet1_0(pretrained=True)
+        model = torchvision.models.squeezenet1_0(pretrained=False)
         # SqueezeNet uses a Conv2d classifier; adjust its output channels
         model.classifier[1] = nn.Conv2d(512, num_classes, kernel_size=(1, 1))
         model.num_classes = num_classes

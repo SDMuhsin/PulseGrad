@@ -10,8 +10,8 @@ fi
 
 task=$1
 
-models=("bert-base-uncased" "distilbert-base-uncased")
-optimizers=("adagrad" "adadelta" "rmsprop" "amsgrad" "adam" "experimental" "diffgrad")
+models=("distilbert-base-uncased")
+optimizers=("diffgrad" "experimental") #("adagrad" "adadelta" "rmsprop" "amsgrad" "adam" "experimental" "diffgrad")
 
 for model in "${models[@]}"; do
     for optimizer in "${optimizers[@]}"; do
@@ -19,8 +19,8 @@ for model in "${models[@]}"; do
             --task_name "$task" \
             --model_name_or_path "$model" \
             --optimizer "$optimizer" \
-            --epochs 5 \
-            --lr 5e-5 \
+            --epochs 3 \
+            --lr 0.0001 \
             --batch_size 32
     done
 done
