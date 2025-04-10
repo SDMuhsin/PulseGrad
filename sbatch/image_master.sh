@@ -29,7 +29,7 @@ for dataset in "${!pairs[@]}"; do
             --cpus-per-task=1 \
             --gpus=1 \
             --mem=8000M \
-            --time=7-00:00 \
+            --time=1-00:00 \
             --chdir=/scratch/sdmuhsin/DiffGrad2 \
             --output=${optimizer}-${model_filename}-${dataset}-%N-%j.out \
             --wrap="
@@ -42,7 +42,7 @@ for dataset in "${!pairs[@]}"; do
                 echo 'Environment loaded'
                 which python3
                 export PYTHONPATH=\"\$PYTHONPATH:\$(pwd)\"
-                python3 src/train_imageclassification.py --dataset=$dataset --model=$model --optimizer=$optimizer --epochs=100 --batch_size=64 --lr=0.0001
+                python3 src/train_imageclassification.py --dataset=$dataset --model=$model --optimizer=$optimizer --epochs=100 --batch_size=64 --lr=0.001
             "
     done
 done
