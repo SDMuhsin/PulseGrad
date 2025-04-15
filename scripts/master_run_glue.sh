@@ -10,11 +10,15 @@ fi
 
 task=$1
 
-models=("distilbert-base-uncased")
-optimizers=("diffgrad" "experimental" "adagrad" "adadelta" "rmsprop" "amsgrad" "adam" "experimental" "diffgrad")
+# Five similar transformer models
+models=("xlnet-base-cased" "distilbert-base-uncased" "bert-base-uncased" "roberta-base"  "albert-base-v2")
+
+# List of optimizers to iterate over
+optimizers=("diffgrad" "experimental")
 
 for model in "${models[@]}"; do
     for optimizer in "${optimizers[@]}"; do
+        echo "Training with model: $model using optimizer: $optimizer"
         python ./src/train_glue.py \
             --task_name "$task" \
             --model_name_or_path "$model" \

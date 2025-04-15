@@ -6,8 +6,8 @@ echo "Beginning train_imageclassification.py sbatch script submissions."
 declare -A pairs
 #pairs["MNIST"]="squeezenet1_0"
 #pairs["FMNIST"]="resnet50"
-#pairs["CIFAR10"]="densenet121"
-pairs["CIFAR100"]="vit_b_16"
+pairs["CIFAR10"]="densenet121"
+#pairs["CIFAR100"]="vit_b_16"
 #pairs["STL10"]="efficientnet_v2_s"
 
 # List of optimizers to loop through
@@ -42,7 +42,7 @@ for dataset in "${!pairs[@]}"; do
                 echo 'Environment loaded'
                 which python3
                 export PYTHONPATH=\"\$PYTHONPATH:\$(pwd)\"
-                python3 src/train_imageclassification.py --dataset=$dataset --model=$model --optimizer=$optimizer --epochs=100 --batch_size=64 --lr=0.00005
+                python3 src/train_imageclassification.py --dataset=$dataset --model=$model --optimizer=$optimizer --epochs=100 --batch_size=64 --lr=0.001
             "
     done
 done
