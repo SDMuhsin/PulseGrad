@@ -24,7 +24,7 @@ for model in "${models[@]}"; do
             --model_name_or_path "$model" \
             --optimizer "$optimizer" \
             --epochs 3 \
-            --lr 0.0001 \
+            --lr 0.05 \
             --batch_size 32
     done
 done
