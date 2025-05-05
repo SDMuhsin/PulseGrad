@@ -141,13 +141,12 @@ def run_single_training(task_name, model_name_or_path, optimizer_name, lr, epoch
         tokenizer.pad_token = tokenizer.eos_token
     config.pad_token_id = tokenizer.pad_token_id
     
-    '''
+    
     model = AutoModelForSequenceClassification.from_pretrained(
         model_name_or_path,
         config=config,
         ignore_mismatched_sizes=ignore_mismatched_sizes
-    )'''
-    model = AutoModelForSequenceClassification.from_config(config)
+    )
 
 
     sentence1_key, sentence2_key = task_to_keys[task_name]

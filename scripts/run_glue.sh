@@ -10,8 +10,8 @@ fi
 
 task=$1
 
-models=("distilbert-base-uncased")
-optimizers=("diffgrad" "experimental" "adagrad" "adadelta" "rmsprop" "amsgrad" "adam" "experimental" "diffgrad")
+models=("google-bert/bert-large-uncased" "microsoft/deberta-v3-large")
+optimizers=("adagrad" "adadelta" "rmsprop" "amsgrad" "adam" "experimental" "diffgrad")
 
 for model in "${models[@]}"; do
     for optimizer in "${optimizers[@]}"; do

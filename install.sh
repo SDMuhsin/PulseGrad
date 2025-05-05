@@ -4,4 +4,4 @@ cd ./data/transformers
 python3 -m pip install .
 cd ../../
 
-python3 -m pip install evaluate datasets accelerate
+python3 -m pip install evaluate datasets accelerate sentencepiece protobuf
