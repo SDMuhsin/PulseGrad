@@ -5,3 +5,5 @@ python3 -m pip install .
 cd ../../
 
 python3 -m pip install evaluate datasets accelerate sentencepiece protobuf
+python3 -m pip install adabelief-pytorch adamp madgrad adan-pytorch lion-pytorch torch-optimizer Sophia-Optimizer
+

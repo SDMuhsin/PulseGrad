@@ -13,6 +13,13 @@ import os
 import csv
 from datetime import datetime
 
+from adabelief_pytorch import AdaBelief
+from adamp import AdamP                 # also exposes SGDP if you ever need it
+import madgrad                         # madgrad.MADGRAD(...)
+from adan_pytorch import Adan
+from lion_pytorch import Lion
+#from Sophia import SophiaG             # Sophia-G variant from the paper
+
 # Local experimental optimizers (ensure these modules are in your PYTHONPATH)
 from experimental.lance import LANCE
 from experimental.diffgrad import diffgrad
@@ -149,6 +156,28 @@ def get_optimizer(optimizer_name, model_params, lr):
         optimizer = Experimental(model_params, lr=lr)
     elif optimizer_name == 'diffgrad':
         optimizer = diffgrad(model_params, lr=lr)
+    elif optimizer_name == 'adabelief':
+        optimizer = AdaBelief(model_params, lr=lr, betas=(0.9, 0.999), eps=1e-8)
+
+    elif optimizer_name == 'adamp':
+        optimizer = AdamP(model_params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-2)
+
+    elif optimizer_name == 'madgrad':
+        optimizer = madgrad.MADGRAD(model_params, lr=lr, momentum=0.9, weight_decay=1e-6)
+
+    elif optimizer_name == 'adan':
+        # three betas per the paper: β1, β2, β3
+        optimizer = Adan(model_params, lr=lr, betas=(0.98, 0.92, 0.99),
+                         weight_decay=1e-2)
+
+    elif optimizer_name == 'lion':
+        optimizer = Lion(model_params, lr=lr, weight_decay=1e-2)
+
+
+ #   elif optimizer_name == 'sophia':
+        # Sophia-G default hyper-params from authors
+ #       optimizer = SophiaG(model_params, lr=lr, betas=(0.965, 0.99),
+ #                           rho=0.01, weight_decay=1e-1)
     else:
         raise ValueError(f"Unknown optimizer {optimizer_name}")
 
@@ -257,7 +286,7 @@ def main():
                         ],
                         help="Model architecture to use")
     parser.add_argument('--optimizer', type=str, default='adam',
-                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'diffgrad'],
+                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'diffgrad','adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'adahessian', 'sophia'],
                         help="Optimizer to use")
     parser.add_argument('--epochs', type=int, default=10, help="Number of training epochs")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size")
