@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
-"""Ablation study script for DiffGrad vs. PulseGrad (Experimental).
+"""Ablation study script for DiffGrad, Adam, and PulseGrad (Experimental).
 
 This version prints detailed progress so you can follow training in real time.
+It now supports a finer‑grained hyper‑parameter sweep and an additional Adam
+baseline. When plotting, two figures are generated:
+
+* ``ablation_<param>.png`` – DiffGrad **vs** PulseGrad (for backwards compatibility)
+* ``ablation_<param>_3opt.png`` – DiffGrad **vs** Adam **vs** PulseGrad
 
 Usage examples
 --------------
@@ -14,6 +19,7 @@ import os
 import random
 from datetime import datetime
 from pathlib import Path
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,7 +35,6 @@ from torch.utils.data import DataLoader, Subset
 # ---------------------------------------------------------------------------
 from experimental.diffgrad import diffgrad  # type: ignore
 from experimental.exp import Experimental as PulseGrad  # rename for clarity
-
 
 # ---------------------------------------------------------------------------
 # Reproducibility helpers
@@ -53,11 +58,11 @@ def get_dataset(name: str, transform, root: str = "./data"):
     name = name.lower()
     if name == "cifar100":
         train = torchvision.datasets.CIFAR100(root, train=True, download=True, transform=transform)
-        test  = torchvision.datasets.CIFAR100(root, train=False,  download=True, transform=transform)
+        test = torchvision.datasets.CIFAR100(root, train=False, download=True, transform=transform)
         return train, test, 100
     if name == "cifar10":
         train = torchvision.datasets.CIFAR10(root, train=True, download=True, transform=transform)
-        test  = torchvision.datasets.CIFAR10(root, train=False,  download=True, transform=transform)
+        test = torchvision.datasets.CIFAR10(root, train=False, download=True, transform=transform)
         return train, test, 10
     raise ValueError(name)
 
@@ -71,10 +76,17 @@ def get_model(name: str, num_classes: int):
     raise ValueError(name)
 
 
+# ---------------------------------------------------------------------------
+# Optimizer factory (DiffGrad, Adam, PulseGrad)
+# ---------------------------------------------------------------------------
+
 def build_optimizer(opt_name: str, params, lr: float, betas=(0.9, 0.999), eps: float = 1e-8, gamma: float = 0.3):
+    """Return an instantiated optimizer given its name."""
     opt_name = opt_name.lower()
     if opt_name == "diffgrad":
         return diffgrad(params, lr=lr, betas=betas, eps=eps)
+    if opt_name == "adam":
+        return torch.optim.Adam(params, lr=lr, betas=betas, eps=eps)
     if opt_name == "pulsegrad":
         return PulseGrad(params, lr=lr, betas=betas, gamma=gamma, eps=eps)
     raise ValueError(opt_name)
@@ -87,11 +99,6 @@ def build_optimizer(opt_name: str, params, lr: float, betas=(0.9, 0.999), eps: f
 def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device, epochs):
     best_acc = 0.0
     for epoch in range(1, epochs + 1):
-        if False and epoch == int(0.8 * epochs) + 1: # Interferes with ablation so cancelled
-            for g in optimizer.param_groups:
-                g["lr"] *= 0.1
-                print(f"    LR decayed to {g['lr']:.2e}")
-
         # ----------------- train -----------------
         model.train()
         correct, total = 0, 0
@@ -104,7 +111,7 @@ def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device
             optimizer.step()
             pred = out.argmax(1)
             correct += (pred == y).sum().item()
-            total   += y.size(0)
+            total += y.size(0)
         train_acc = 100.0 * correct / total
 
         # ----------------- validate --------------
@@ -115,7 +122,7 @@ def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device
                 out = model(x)
                 pred = out.argmax(1)
                 correct_val += (pred == y).sum().item()
-                total_val   += y.size(0)
+                total_val += y.size(0)
         val_acc = 100.0 * correct_val / total_val
         best_acc = max(best_acc, val_acc)
 
@@ -124,7 +131,7 @@ def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device
 
 
 def run_cv(dataset_name: str, model_name: str, optimizer_name: str, param_cfg: dict,
-           k_folds: int, epochs: int, batch_size: int, seed: int = 42):
+           k_folds: int, epochs: int, batch_size: int, seed: int = 42) -> Tuple[float, float]:
     set_seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -138,7 +145,7 @@ def run_cv(dataset_name: str, model_name: str, optimizer_name: str, param_cfg: d
     indices = list(range(len(full_train)))
     kfold = KFold(n_splits=k_folds, shuffle=True, random_state=seed)
 
-    scores = []
+    scores: List[float] = []
     for fold, (tr_idx, val_idx) in enumerate(kfold.split(indices), 1):
         print(f"    Fold {fold}/{k_folds} — {optimizer_name} — params: {param_cfg}")
         tr_set, val_set = Subset(full_train, tr_idx), Subset(full_train, val_idx)
@@ -156,25 +163,29 @@ def run_cv(dataset_name: str, model_name: str, optimizer_name: str, param_cfg: d
 
 
 # ---------------------------------------------------------------------------
-# Plotting
+# Plotting helpers
 # ---------------------------------------------------------------------------
 
-def plot_ablation(param_name: str, values, diff_stats, pulse_stats, out_file: Path):
-    import matplotlib.pyplot as plt
+def _label(param_name: str) -> str:
+    """Latex‑friendly label for axis titles."""
+    return {
+        "lr": "Learning rate (log10)",
+        "betas": "$\\beta_1$",  # first‑moment
+        "gamma": "$\\gamma$",   # PulseGrad hyper‑parameter
+        "eps": "$\\epsilon$",
+    }[param_name]
+
+
+def plot_ablation_two(param_name: str, values, diff_stats, pulse_stats, out_file: Path):
+    """Two‑optimizer plot (DiffGrad vs PulseGrad)."""
     plt.figure(figsize=(6, 4))
     dg_mean, dg_std = zip(*diff_stats)
     pg_mean, pg_std = zip(*pulse_stats)
     plt.errorbar(values, dg_mean, yerr=dg_std, marker="o", label="DiffGrad", capsize=3)
     plt.errorbar(values, pg_mean, yerr=pg_std, marker="s", label="PulseGrad", capsize=3)
-    label_map = {
-        "lr": "Learning rate (log10)",
-        "betas": "$\\beta_1$",  # first‑moment
-        "gamma": "$\\gamma$",   # PulseGrad hyper‑parameter
-        "eps": "$\\epsilon$",
-    }
-    plt.xlabel(label_map[param_name])
+    plt.xlabel(_label(param_name))
     plt.ylabel("Top‑1 Accuracy (%)")
-    plt.title(f"Ablation on {label_map[param_name]}")
+    plt.title(f"Ablation on {_label(param_name)}")
     plt.grid(True, linestyle="--", linewidth=0.5)
     plt.legend()
     plt.tight_layout()
@@ -183,12 +194,31 @@ def plot_ablation(param_name: str, values, diff_stats, pulse_stats, out_file: Pa
     print(f"Plot saved to {out_file}")
 
 
+def plot_ablation_three(param_name: str, values, diff_stats, adam_stats, pulse_stats, out_file: Path):
+    """Three‑optimizer plot (DiffGrad vs Adam vs PulseGrad)."""
+    plt.figure(figsize=(6, 4))
+    dg_mean, dg_std = zip(*diff_stats)
+    ad_mean, ad_std = zip(*adam_stats)
+    pg_mean, pg_std = zip(*pulse_stats)
+    plt.errorbar(values, dg_mean, yerr=dg_std, marker="o", label="DiffGrad", capsize=3)
+    plt.errorbar(values, ad_mean, yerr=ad_std, marker="D", label="Adam", capsize=3)
+    plt.errorbar(values, pg_mean, yerr=pg_std, marker="s", label="PulseGrad", capsize=3)
+    plt.xlabel(_label(param_name))
+    plt.ylabel("Top‑1 Accuracy (%)")
+    plt.title(f"Ablation on {_label(param_name)} (3 optimizers)")
+    plt.grid(True, linestyle="--", linewidth=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_file, dpi=300)
+    plt.close()
+    print(f"Plot saved to {out_file}")
+
 # ---------------------------------------------------------------------------
 # Command‑line interface
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Ablation study: DiffGrad vs PulseGrad (with verbose output)")
+    parser = argparse.ArgumentParser(description="Ablation study: DiffGrad, Adam, PulseGrad (with verbose output)")
     parser.add_argument("--ablation", required=True, choices=["lr", "betas", "gamma", "eps"], help="Hyper‑parameter to vary")
     parser.add_argument("--dataset", default="CIFAR10")
     parser.add_argument("--model", default="resnet18")
@@ -199,25 +229,36 @@ def main():
     parser.add_argument("--skip_run", action="store_true", help="Skip running ablation if JSON exists")
     args = parser.parse_args()
 
+    # -------------------------------------------------------------------
+    # Finer‑grained hyper‑parameter sweeps
+    # -------------------------------------------------------------------
     sweep = {
-        "lr":    [1e-4, 3e-4, 1e-3, 3e-3, 1e-2],
-        "betas": [0.5, 0.7, 0.9, 0.95],
-        "gamma": [0.1, 0.3, 0.5, 0.7],
-        "eps":   [1e-8, 1e-7, 1e-6, 1e-5, 1e-4],
+        "lr":    [1e-4, 2e-4, 3e-4, 5e-4, 7e-4, 1e-3, 2e-3, 3e-3, 5e-3, 7e-3, 1e-2],
+        "betas": [0.5, 0.6, 0.7, 0.8, 0.9, 0.95],
+        "gamma": [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
+        "eps":   [1e-8, 3e-8, 1e-7, 3e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4],
     }
     values = sweep[args.ablation]
 
     results_dir = Path("./results"); results_dir.mkdir(exist_ok=True)
     json_path = results_dir / f"ablation_{args.ablation}.json"
 
+    # -------------------------------------------------------------------
+    # Load or compute results
+    # -------------------------------------------------------------------
     if args.skip_run and json_path.exists():
         print("Loading cached results …")
         data = json.loads(json_path.read_text())
+        # Backwards compatibility: if Adam data missing, abort skip_run
+        required_keys = {"DiffGrad_mean", "PulseGrad_mean", "Adam_mean"}
+        if not required_keys.issubset(data):
+            raise RuntimeError("Cached file lacks Adam results; rerun without --skip_run once.")
         values = data["param_values"]
         diff_stats = list(zip(data["DiffGrad_mean"], data["DiffGrad_std"]))
+        adam_stats = list(zip(data["Adam_mean"], data["Adam_std"]))
         pulse_stats = list(zip(data["PulseGrad_mean"], data["PulseGrad_std"]))
     else:
-        diff_stats, pulse_stats = [], []
+        diff_stats, adam_stats, pulse_stats = [], [], []
         for val in values:
             print(f"\n>>> Running ablation {args.ablation} = {val}")
             common_cfg = {"lr": 1e-3, "betas": (0.9, 0.999), "eps": 1e-8, "gamma": 0.3}
@@ -235,6 +276,11 @@ def main():
                                      args.k_folds, args.epochs, args.batch_size)
             diff_stats.append((mean_dg, std_dg))
 
+            print("  -- Adam --")
+            mean_ad, std_ad = run_cv(args.dataset, args.model, "adam", common_cfg,
+                                     args.k_folds, args.epochs, args.batch_size)
+            adam_stats.append((mean_ad, std_ad))
+
             print("  -- PulseGrad --")
             mean_pg, std_pg = run_cv(args.dataset, args.model, "pulsegrad", common_cfg,
                                      args.k_folds, args.epochs, args.batch_size)
@@ -246,6 +292,8 @@ def main():
             "param_values": values,
             "DiffGrad_mean": [m for m, _ in diff_stats],
             "DiffGrad_std":  [s for _, s in diff_stats],
+            "Adam_mean":     [m for m, _ in adam_stats],
+            "Adam_std":      [s for _, s in adam_stats],
             "PulseGrad_mean": [m for m, _ in pulse_stats],
             "PulseGrad_std":  [s for _, s in pulse_stats],
             "meta": {
@@ -258,9 +306,14 @@ def main():
         json_path.write_text(json.dumps(payload, indent=2))
         print(f"Results saved to {json_path}")
 
+    # -------------------------------------------------------------------
+    # Plotting
+    # -------------------------------------------------------------------
     if args.plot:
-        plot_ablation(args.ablation, values, diff_stats, pulse_stats,
-                      results_dir / f"ablation_{args.ablation}.png")
+        out_two = results_dir / f"ablation_{args.ablation}.png"
+        out_three = results_dir / f"ablation_{args.ablation}_3opt.png"
+        plot_ablation_two(args.ablation, values, diff_stats, pulse_stats, out_two)
+        plot_ablation_three(args.ablation, values, diff_stats, adam_stats, pulse_stats, out_three)
 
 
 if __name__ == "__main__":
