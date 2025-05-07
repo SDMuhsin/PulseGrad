@@ -4,14 +4,14 @@ echo "Beginning train_imageclassification.py sbatch script submissions."
 
 # Define dataset-model pairs based on task difficulty and model size
 declare -A pairs
-#pairs["MNIST"]="squeezenet1_0"
-#pairs["FMNIST"]="resnet50"
+pairs["MNIST"]="squeezenet1_0"
+pairs["FMNIST"]="resnet50"
 pairs["CIFAR10"]="densenet121"
 #pairs["CIFAR100"]="vit_b_16"
 #pairs["STL10"]="efficientnet_v2_s"
 
 # List of optimizers to loop through
-optimizers=(adagrad adadelta rmsprop amsgrad adam experimental diffgrad)
+optimizers=( adabelief adamp madgrad adan lion ) #adagrad adadelta rmsprop amsgrad adam experimental diffgrad)
 
 # Loop through each dataset-model pair
 for dataset in "${!pairs[@]}"; do
