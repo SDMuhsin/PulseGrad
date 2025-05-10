@@ -33,7 +33,11 @@ from transformers import (
 )
 from experimental.diffgrad import diffgrad
 from experimental.exp import Experimental
-
+from adabelief_pytorch import AdaBelief
+from adamp import AdamP                 # also exposes SGDP if you ever need it
+import madgrad                         # madgrad.MADGRAD(...)
+from adan_pytorch import Adan
+from lion_pytorch import Lion
 
 ###############################################################################
 # Stub implementations for custom optimizers. Replace with your own if needed.
@@ -60,6 +64,23 @@ def get_optimizer(optimizer_name, model_params, lr):
         return Experimental(model_params, lr=lr)
     elif optimizer_name == 'diffgrad':
         return diffgrad(model_params, lr=lr)
+    elif optimizer_name == 'adabelief':
+        optimizer = AdaBelief(model_params, lr=lr, betas=(0.9, 0.999), eps=1e-8)
+
+    elif optimizer_name == 'adamp':
+        optimizer = AdamP(model_params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-2)
+
+    elif optimizer_name == 'madgrad':
+        optimizer = madgrad.MADGRAD(model_params, lr=lr, momentum=0.9, weight_decay=1e-6)
+
+    elif optimizer_name == 'adan':
+        # three betas per the paper: β1, β2, β3
+        optimizer = Adan(model_params, lr=lr, betas=(0.98, 0.92, 0.99),
+                         weight_decay=1e-2)
+
+    elif optimizer_name == 'lion':
+        optimizer = Lion(model_params, lr=lr, weight_decay=1e-2)
+
     else:
         raise ValueError(f"Unknown optimizer: {optimizer_name}")
 
@@ -95,7 +116,7 @@ def parse_args():
         "--optimizer",
         type=str,
         default="adam",
-        choices=["adagrad", "adadelta", "rmsprop", "amsgrad", "adam", "experimental", "diffgrad"],
+        choices=["adagrad", "adadelta", "rmsprop", "amsgrad", "adam", "experimental", "diffgrad", 'adabelief', 'adamp', 'madgrad', 'adan', 'lion'],
         help="Optimizer to use."
     )
     parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs.")
