@@ -65,21 +65,21 @@ def get_optimizer(optimizer_name, model_params, lr):
     elif optimizer_name == 'diffgrad':
         return diffgrad(model_params, lr=lr)
     elif optimizer_name == 'adabelief':
-        optimizer = AdaBelief(model_params, lr=lr, betas=(0.9, 0.999), eps=1e-8)
+        return AdaBelief(model_params, lr=lr, betas=(0.9, 0.999), eps=1e-8)
 
     elif optimizer_name == 'adamp':
-        optimizer = AdamP(model_params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-2)
+        return AdamP(model_params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-2)
 
     elif optimizer_name == 'madgrad':
-        optimizer = madgrad.MADGRAD(model_params, lr=lr, momentum=0.9, weight_decay=1e-6)
+        return madgrad.MADGRAD(model_params, lr=lr, momentum=0.9, weight_decay=1e-6)
 
     elif optimizer_name == 'adan':
         # three betas per the paper: β1, β2, β3
-        optimizer = Adan(model_params, lr=lr, betas=(0.98, 0.92, 0.99),
+        return Adan(model_params, lr=lr, betas=(0.98, 0.92, 0.99),
                          weight_decay=1e-2)
 
     elif optimizer_name == 'lion':
-        optimizer = Lion(model_params, lr=lr, weight_decay=1e-2)
+        return Lion(model_params, lr=lr, weight_decay=1e-2)
 
     else:
         raise ValueError(f"Unknown optimizer: {optimizer_name}")

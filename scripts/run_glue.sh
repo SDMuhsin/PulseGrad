@@ -10,7 +10,8 @@ fi
 
 task=$1
 
-models=("google-bert/bert-large-uncased" "microsoft/deberta-v3-large")
+models=("roberta-base" "albert-base-v2" "xlm-roberta-base" "electra-base-discriminator" "microsoft/deberta-base" "microsoft/deberta-v3-base")  #("" "microsoft/deberta-v3-large")
+
 optimizers=("adan" "adagrad" "adadelta" "rmsprop" "amsgrad" "adam" "experimental" "diffgrad" "adabelief" "adamp" "madgrad" "lion")
 
 for model in "${models[@]}"; do
@@ -20,7 +21,7 @@ for model in "${models[@]}"; do
             --model_name_or_path "$model" \
             --optimizer "$optimizer" \
             --epochs 3 \
-            --lr 0.00001 \
+            --lr 0.0001 \
             --batch_size 32
     done
 done
