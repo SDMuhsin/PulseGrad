@@ -4,10 +4,10 @@ echo "Beginning train_imageclassification.py sbatch script submissions."
 
 # Define dataset-model pairs based on task difficulty and model size
 declare -A pairs
-#pairs["MNIST"]="squeezenet1_0"
-#pairs["FMNIST"]="resnet50"
-#pairs["CIFAR10"]="densenet121"
-pairs["CIFAR100"]="vit_b_16"
+pairs["MNIST"]="squeezenet1_0"
+pairs["FMNIST"]="resnet50"
+pairs["CIFAR10"]="densenet121"
+#pairs["CIFAR100"]="vit_b_16"
 #pairs["STL10"]="efficientnet_v2_s"
 
 # List of optimizers to loop through
@@ -29,7 +29,7 @@ for dataset in "${!pairs[@]}"; do
             --cpus-per-task=1 \
             --gpus=1 \
             --mem=8000M \
-            --time=7-00:00 \
+            --time=3-00:00 \
             --chdir=/scratch/sdmuhsin/DiffGrad2 \
             --output=${optimizer}-${model_filename}-${dataset}-%N-%j.out \
             --wrap="
