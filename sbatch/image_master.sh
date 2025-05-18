@@ -11,7 +11,7 @@ pairs["MNIST"]="squeezenet1_0"
 #pairs["STL10"]="efficientnet_v2_s"
 
 # List of optimizers to loop through
-optimizers=( adabelief ) #adamp madgrad adan lion ) #adagrad adadelta rmsprop amsgrad adam experimental diffgrad)
+optimizers=( adamp madgrad adan lion ) #adagrad adadelta rmsprop amsgrad adam experimental diffgrad)
 
 # Loop through each dataset-model pair
 for dataset in "${!pairs[@]}"; do
