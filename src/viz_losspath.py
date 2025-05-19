@@ -36,49 +36,93 @@ except ImportError:                                        # noqa: D401,E501
 # ──────────────────────────────────────────────────────────────────
 # 1-D TOY FUNCTIONS
 # ------------------------------------------------------------------
-def sharp_tanh_steps(x):
+def rapid_gradient_oscillation(x):
+    """
+    A function with a quadratic basin overlaid with a high-frequency cosine wave.
+    The gradient includes a term like -A*B*sin(B*x), which oscillates rapidly
+    in magnitude and sign, causing (g_t - g_{t-1})^2 to be frequently large.
+    Experimental optimizer's enhanced v_t should help stabilize steps.
+
+    f(x) = C*x^2 + A*cos(B*x)
+    f'(x) = 2*C*x - A*B*sin(B*x)
+    """
+    A = 1.0   # Amplitude of cosine wave
+    B = 50.0  # Frequency of cosine wave (high for rapid oscillation)
+    C = 0.05  # Strength of the underlying quadratic basin
     def torch_fn(t):
-        return 0.5 * t**2 + 5 * torch.tanh(100 * (t - 1)) - 5 * torch.tanh(100 * (t - 2))
+        return C * t**2 + A * torch.cos(B * t)
     def np_fn(t):
-        return 0.5 * t**2 + 5 * np.tanh(100 * (t - 1)) - 5 * np.tanh(100 * (t - 2))
+        return C * t**2 + A * np.cos(B * t)
     return torch_fn(x) if isinstance(x, torch.Tensor) else np_fn(x)
 
-def fractal_sine(x):
+def narrow_well_wide_plateau(x):
+    """
+    A function with a gentle global slope but a very narrow, deep Gaussian well.
+    The gradient is small on the "plateau" but becomes very large and changes
+    sign abruptly within the narrow well.
+    If an optimizer approaches the well from the plateau (g_{t-1} is small)
+    and encounters the steep slope of the well (g_t is large), the
+    (g_{t-1} - g_t)^2 term in Experimental's v_t will be large. This inflates
+    v_t (approx (1+gamma)*g_t^2 vs g_t^2 for Adam/diffGrad), leading to a
+    more cautious step that might help Experimental settle into the well
+    while others might overshoot.
+
+    f(x) = D*(x+x_offset)^2 - A*exp(-k*(x-c)^2)
+    f'(x) = 2*D*(x+x_offset) + 2*A*k*(x-c)*exp(-k*(x-c)^2)
+    """
+    A = 6.0       # Depth of the well
+    k = 250.0     # Narrowness of the well (larger k = narrower)
+    c = 2.0       # Center of the well
+    D = 0.005     # Strength of the quadratic pull
+    x_offset = 5.0 # Shifts the minimum of the quadratic term
     def torch_fn(t):
-        total = torch.zeros_like(t)
-        for i in range(1, 11):
-            total += (1 / (2 ** i)) * torch.sin((2 ** i) * t)
-        return total + 0.02 * t**2
+        return D * (t + x_offset)**2 - A * torch.exp(-k * (t - c)**2)
     def np_fn(t):
-        total = np.zeros_like(t)
-        for i in range(1, 11):
-            total += (1 / (2 ** i)) * np.sin((2 ** i) * t)
-        return total + 0.02 * t**2
+        return D * (t + x_offset)**2 - A * np.exp(-k * (t - c)**2)
     return torch_fn(x) if isinstance(x, torch.Tensor) else np_fn(x)
 
-def tanh_sine_osc(x):
+def erratic_sign_changes(x):
+    """
+    A function whose gradient is dominated by a high-frequency, high-amplitude
+    sine wave, causing frequent and sharp sign changes in the gradient.
+    The underlying structure is a gentle quadratic.
+    When g_t approx -g_{t-1} (a sign flip), (g_t - g_{t-1})^2 approx (2*g_t)^2 = 4*g_t^2.
+    Experimental's v_t update incorporates g_t^2 + gamma*(g_t - g_{t-1})^2,
+    which becomes approx. (1+4*gamma)*g_t^2. This is significantly larger
+    than Adam/diffGrad's v_t (based on g_t^2), leading to much smaller steps
+    for Experimental, potentially improving stability and preventing oscillations.
+
+    The function is derived from f(x) = D*x^2 + 0.5*A * [cos(k_diff*x) - cos(k_sum*x)]
+    Its gradient is f'(x) = 2*D*x + 0.5*A * [-k_diff*sin(k_diff*x) + k_sum*sin(k_sum*x)]
+    """
+    A = 1.0      # Amplitude factor for oscillatory part
+    k_sum = 22.0 # Corresponds to (k1+k2)
+    k_diff = 2.0 # Corresponds to (k1-k2)
+    D = 0.01     # Strength of the underlying quadratic basin
     def torch_fn(t):
-        return t**2 + 5 * torch.tanh(100 * torch.sin(5 * t)) + 5 * torch.tanh(100 * torch.sin(7 * t))
+        # This form's gradient: 2Dt + 0.5A(-k_diff sin(k_diff t) + k_sum sin(k_sum t))
+        return D * t**2 + 0.5 * A * (torch.cos(k_diff * t) - torch.cos(k_sum * t))
     def np_fn(t):
-        return t**2 + 5 * np.tanh(100 * np.sin(5 * t)) + 5 * np.tanh(100 * np.sin(7 * t))
+        return D * t**2 + 0.5 * A * (np.cos(k_diff * t) - np.cos(k_sum * t))
     return torch_fn(x) if isinstance(x, torch.Tensor) else np_fn(x)
 
+# Dictionary of the new toy functions
 toy_functions = {
-    "sharp_tanh_steps": sharp_tanh_steps,
-    "fractal_sine":     fractal_sine,
-    "tanh_sine_osc":    tanh_sine_osc,
+    "rapid_gradient_oscillation": rapid_gradient_oscillation,
+    "narrow_well_wide_plateau":   narrow_well_wide_plateau,
+    "erratic_sign_changes":       erratic_sign_changes,
 }
 
 equations = {
-    "sharp_tanh_steps": r"$0.5 x^2 + 5\tanh(100(x-1)) - 5\tanh(100(x-2))$",
-    "fractal_sine":     r"$\sum_{i=1}^{10}2^{-i}\sin(2^i x) + 0.02 x^2$",
-    "tanh_sine_osc":    r"$x^2 + 5\tanh(100\sin(5x)) + 5\tanh(100\sin(7x))$",
+    "rapid_gradient_oscillation": r"$0.05 x^2 + \cos(50x)$",
+    "narrow_well_wide_plateau":   r"$0.005(x+5)^2 - 6e^{-250(x-2)^2}$",
+    "erratic_sign_changes":       r"$0.01 x^2 + 0.5(\cos(2x) - \cos(22x))$",
 }
 
 display_names = {
-    "sharp_tanh_steps": "Sharp Tanh Steps",
-    "fractal_sine":     "Fractal Sine",
-    "tanh_sine_osc":    "Tanh-Sine Oscillations",
+    "rapid_gradient_oscillation": "Rapid Gradient Oscillation",
+    "narrow_well_wide_plateau":   "Narrow Well on Wide Plateau",
+    "erratic_sign_changes":       "Erratic Sign Changes",
 }
 # ──────────────────────────────────────────────────────────────────
 # OPTIMIZATION CORE
