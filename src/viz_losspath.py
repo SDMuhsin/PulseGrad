@@ -6,6 +6,7 @@ $ python optimizer_trajectory_1d_comparison.py \
       --optimizers adam,diffgrad,pulsegrad \
       --lr 0.02 --steps 150
 """
+import math
 import argparse
 import os
 import warnings
@@ -36,95 +37,105 @@ except ImportError:                                        # noqa: D401,E501
 # ──────────────────────────────────────────────────────────────────
 # 1-D TOY FUNCTIONS
 # ------------------------------------------------------------------
-def rapid_gradient_oscillation(x):
+def high_frequency_gauntlet(x, A_env_amp=1.0, k_env_width=5.0, x_mod_center=1.0, B_osc_freq=100.0, D_quad_pull=0.001):
     """
-    A function with a quadratic basin overlaid with a high-frequency cosine wave.
-    The gradient includes a term like -A*B*sin(B*x), which oscillates rapidly
-    in magnitude and sign, causing (g_t - g_{t-1})^2 to be frequently large.
-    Experimental optimizer's enhanced v_t should help stabilize steps.
-
-    f(x) = C*x^2 + A*cos(B*x)
-    f'(x) = 2*C*x - A*B*sin(B*x)
+    An intense, localized region of very high-frequency oscillations with
+    Gaussian-modulated amplitude, overlaying a gentle global pull.
+    f(x) = A_env_amp * exp(-k_env_width*(x-x_mod_center)^2) * cos(B_osc_freq*x) + D_quad_pull*x^2
     """
-    A = 1.0   # Amplitude of cosine wave
-    B = 50.0  # Frequency of cosine wave (high for rapid oscillation)
-    C = 0.05  # Strength of the underlying quadratic basin
-    def torch_fn(t):
-        return C * t**2 + A * torch.cos(B * t)
-    def np_fn(t):
-        return C * t**2 + A * np.cos(B * t)
-    return torch_fn(x) if isinstance(x, torch.Tensor) else np_fn(x)
+    envelope = A_env_amp * torch.exp(-k_env_width * (x - x_mod_center)**2) if isinstance(x, torch.Tensor) else A_env_amp * np.exp(-k_env_width * (x - x_mod_center)**2)
+    
+    if isinstance(x, torch.Tensor):
+        oscillation_term = envelope * torch.cos(B_osc_freq * x)
+        quadratic_term = D_quad_pull * x**2
+        return oscillation_term + quadratic_term
+    else: # numpy
+        oscillation_term = envelope * np.cos(B_osc_freq * x)
+        quadratic_term = D_quad_pull * x**2
+        return oscillation_term + quadratic_term
 
-def narrow_well_wide_plateau(x):
+def mesa_trap(x, D_pull=0.01, x_true_target=-2.0, A_mesa=0.5, k_mesa_width=8.0, x_mesa_center=0.75, N_mesa_power=4):
     """
-    A function with a gentle global slope but a very narrow, deep Gaussian well.
-    The gradient is small on the "plateau" but becomes very large and changes
-    sign abruptly within the narrow well.
-    If an optimizer approaches the well from the plateau (g_{t-1} is small)
-    and encounters the steep slope of the well (g_t is large), the
-    (g_{t-1} - g_t)^2 term in Experimental's v_t will be large. This inflates
-    v_t (approx (1+gamma)*g_t^2 vs g_t^2 for Adam/diffGrad), leading to a
-    more cautious step that might help Experimental settle into the well
-    while others might overshoot.
-
-    f(x) = D*(x+x_offset)^2 - A*exp(-k*(x-c)^2)
-    f'(x) = 2*D*(x+x_offset) + 2*A*k*(x-c)*exp(-k*(x-c)^2)
+    A global quadratic pull. A very flat-topped "mesa" (plateau) is on the path.
+    Gradient onto mesa is steep. Gradient on top is tiny. Adam's v_t may decay,
+    leading to a large step off. Experimental's v_t should stay larger due to diff.
+    f(x) = D_pull*(x-x_true_target)^2 + A_mesa * exp(-(k_mesa_width*(x-x_mesa_center))**(2*N_mesa_power))
     """
-    A = 6.0       # Depth of the well
-    k = 250.0     # Narrowness of the well (larger k = narrower)
-    c = 2.0       # Center of the well
-    D = 0.005     # Strength of the quadratic pull
-    x_offset = 5.0 # Shifts the minimum of the quadratic term
-    def torch_fn(t):
-        return D * (t + x_offset)**2 - A * torch.exp(-k * (t - c)**2)
-    def np_fn(t):
-        return D * (t + x_offset)**2 - A * np.exp(-k * (t - c)**2)
-    return torch_fn(x) if isinstance(x, torch.Tensor) else np_fn(x)
+    u_mesa = k_mesa_width * (x - x_mesa_center)
+    if isinstance(x, torch.Tensor):
+        quadratic_term = D_pull * (x - x_true_target)**2
+        # Power needs to be applied carefully for negative bases if N_mesa_power is not integer
+        # However, (u_mesa)^even_power is same as (|u_mesa|)^even_power
+        # Or ensure u_mesa is passed to pow after abs if that was the intent for robustness,
+        # but mathematically u_mesa**(2*N) implies the sign of u_mesa is lost.
+        # For u_mesa^8, sign is lost.
+        mesa_term = A_mesa * torch.exp(-torch.pow(u_mesa, 2 * N_mesa_power))
+        return quadratic_term + mesa_term
+    else: # numpy
+        quadratic_term = D_pull * (x - x_true_target)**2
+        # mesa_term = A_mesa * np.exp(-(np.abs(u_mesa)**(2 * N_mesa_power))) # If N_mesa_power could be non-integer
+        mesa_term = A_mesa * np.exp(-(u_mesa**(2 * N_mesa_power)))
+        return quadratic_term + mesa_term
 
-def erratic_sign_changes(x):
+def decoy_basin_turbulent_exit(x, D_global=0.01, x_target=-2.0,
+                               A_decoy=0.3, k_decoy=10.0, x_decoy_center=0.5,
+                               A_subtle=0.03, F_subtle=15.0,
+                               A_ramp=0.75, F_ramp=120.0, x_ramp_center=-0.25, k_ramp_env=80.0):
     """
-    A function whose gradient is dominated by a high-frequency, high-amplitude
-    sine wave, causing frequent and sharp sign changes in the gradient.
-    The underlying structure is a gentle quadratic.
-    When g_t approx -g_{t-1} (a sign flip), (g_t - g_{t-1})^2 approx (2*g_t)^2 = 4*g_t^2.
-    Experimental's v_t update incorporates g_t^2 + gamma*(g_t - g_{t-1})^2,
-    which becomes approx. (1+4*gamma)*g_t^2. This is significantly larger
-    than Adam/diffGrad's v_t (based on g_t^2), leading to much smaller steps
-    for Experimental, potentially improving stability and preventing oscillations.
-
-    The function is derived from f(x) = D*x^2 + 0.5*A * [cos(k_diff*x) - cos(k_sum*x)]
-    Its gradient is f'(x) = 2*D*x + 0.5*A * [-k_diff*sin(k_diff*x) + k_sum*sin(k_sum*x)]
+    Lures optimizer into a shallow decoy basin with subtle oscillations, then requires
+    navigating a short, highly turbulent 'exit ramp' to reach the true minimum.
+    Adam may take a large step into turbulence; Experimental should adapt better.
     """
-    A = 1.0      # Amplitude factor for oscillatory part
-    k_sum = 22.0 # Corresponds to (k1+k2)
-    k_diff = 2.0 # Corresponds to (k1-k2)
-    D = 0.01     # Strength of the underlying quadratic basin
-    def torch_fn(t):
-        # This form's gradient: 2Dt + 0.5A(-k_diff sin(k_diff t) + k_sum sin(k_sum t))
-        return D * t**2 + 0.5 * A * (torch.cos(k_diff * t) - torch.cos(k_sum * t))
-    def np_fn(t):
-        return D * t**2 + 0.5 * A * (np.cos(k_diff * t) - np.cos(k_sum * t))
-    return torch_fn(x) if isinstance(x, torch.Tensor) else np_fn(x)
+    if isinstance(x, torch.Tensor):
+        # Global pull
+        term_global_pull = D_global * (x - x_target)**2
+        
+        # Decoy Basin
+        u_decoy = x - x_decoy_center
+        term_decoy_well = -A_decoy * torch.exp(-k_decoy * u_decoy**2)
+        term_subtle_osc = A_subtle * torch.cos(F_subtle * u_decoy) # Centered with decoy
+        
+        # Turbulent Exit Ramp
+        u_ramp = x - x_ramp_center
+        term_ramp_osc = A_ramp * torch.cos(F_ramp * u_ramp)
+        term_ramp_envelope = torch.exp(-k_ramp_env * u_ramp**2)
+        term_turbulent_ramp = term_ramp_osc * term_ramp_envelope
+        
+        return term_global_pull + term_decoy_well + term_subtle_osc + term_turbulent_ramp
+    else: # numpy
+        term_global_pull = D_global * (x - x_target)**2
+        
+        u_decoy = x - x_decoy_center
+        term_decoy_well = -A_decoy * np.exp(-k_decoy * u_decoy**2)
+        term_subtle_osc = A_subtle * np.cos(F_subtle * u_decoy)
+        
+        u_ramp = x - x_ramp_center
+        term_ramp_osc = A_ramp * np.cos(F_ramp * u_ramp)
+        term_ramp_envelope = np.exp(-k_ramp_env * u_ramp**2)
+        term_turbulent_ramp = term_ramp_osc * term_ramp_envelope
+        
+        return term_global_pull + term_decoy_well + term_subtle_osc + term_turbulent_ramp
 
-# Dictionary of the new toy functions
+# Dictionary of the toy functions
 toy_functions = {
-    "rapid_gradient_oscillation": rapid_gradient_oscillation,
-    "narrow_well_wide_plateau":   narrow_well_wide_plateau,
-    "erratic_sign_changes":       erratic_sign_changes,
+    "high_frequency_gauntlet": high_frequency_gauntlet,
+    "mesa_trap": mesa_trap,
+    "decoy_basin_turbulent_exit": decoy_basin_turbulent_exit,
 }
 
+# LaTeX representations of the functions
 equations = {
-    "rapid_gradient_oscillation": r"$0.05 x^2 + \cos(50x)$",
-    "narrow_well_wide_plateau":   r"$0.005(x+5)^2 - 6e^{-250(x-2)^2}$",
-    "erratic_sign_changes":       r"$0.01 x^2 + 0.5(\cos(2x) - \cos(22x))$",
+    "high_frequency_gauntlet": r"$A_e e^{-k_e(x-x_c)^2} \cos(Bx) + D x^2$",
+    "mesa_trap": r"$D(x-x_t)^2 + A_m e^{-(k_m(x-x_m))^{2N}}$",
+    "decoy_basin_turbulent_exit": r"$D(x-x_t)^2 - A_d e^{-k_d(x-x_d)^2} + A_s \cos(F_s(x-x_d)) + A_r \cos(F_r(x-x_r))e^{-k_r(x-x_r)^2}$",
 }
 
+# Display names for plots or tables
 display_names = {
-    "rapid_gradient_oscillation": "Rapid Gradient Oscillation",
-    "narrow_well_wide_plateau":   "Narrow Well on Wide Plateau",
-    "erratic_sign_changes":       "Erratic Sign Changes",
+    "high_frequency_gauntlet": "High-Frequency Gauntlet",
+    "mesa_trap": "Mesa Trap",
+    "decoy_basin_turbulent_exit": "Decoy Basin & Turbulent Exit",
 }
-# ──────────────────────────────────────────────────────────────────
 # OPTIMIZATION CORE
 # ------------------------------------------------------------------
 def optimize_1d(

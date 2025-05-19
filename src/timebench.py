@@ -17,7 +17,7 @@ import csv
 import statistics # Keep for potential future use, though direct median is fine for now
 
 # Optimizer imports
-from experimental.exp import Experimental as PulseGrad # Renamed as requested
+from experimental.eexp import ExperimentalOptimized as PulseGrad # Renamed as requested
 # Assuming these are in the PYTHONPATH or current directory structure as in the reference
 # If 'experimental' is a directory, ensure __init__.py is present
 # For stubs, if they are truly just optimizers, they should accept params and lr.
