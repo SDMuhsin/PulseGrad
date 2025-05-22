@@ -1,4 +1,4 @@
-#!/bin/bash
+!/bin/bash
 
 echo "Beginning train_imageclassification.py sbatch script submissions."
 
@@ -10,26 +10,35 @@ pairs["CIFAR10"]="densenet121"
 pairs["CIFAR100"]="vit_b_16"
 #pairs["STL10"]="efficientnet_v2_s"
 
+# Define time allocations for each dataset
+declare -A dataset_times
+dataset_times["MNIST"]="1-04:00:00"  # 1 day 4 hours
+dataset_times["FMNIST"]="7-00:00:00" # Default for FMNIST, can be adjusted
+dataset_times["CIFAR10"]="2-00:00:00" # 2 days
+dataset_times["CIFAR100"]="3-04:00:00" # 3 days 4 hours
+#dataset_times["STL10"]="7-00:00:00" # Default for STL10, if uncommented
+
 # List of optimizers to loop through
 optimizers=( adabelief adamp madgrad adan lion ) #adagrad adadelta rmsprop amsgrad adam experimental diffgrad)
 
 # Loop through each dataset-model pair
 for dataset in "${!pairs[@]}"; do
     model="${pairs[$dataset]}"
-    
+    job_time="${dataset_times[$dataset]}" # Get the time for the current dataset
+
     # Remove slash from model name if present (for output filename safety)
     model_filename=${model//\//}
 
     # Loop through optimizers for the current dataset-model pair
     for optimizer in "${optimizers[@]}"; do
-        echo "Submitting job with dataset: $dataset, model: $model, optimizer: $optimizer"
+        echo "Submitting job with dataset: $dataset, model: $model, optimizer: $optimizer, time: $job_time"
         sbatch \
             --nodes=1 \
             --ntasks-per-node=1 \
             --cpus-per-task=1 \
             --gpus=1 \
             --mem=8000M \
-            --time=7-00:00 \
+            --time=$job_time \
             --chdir=/scratch/sdmuhsin/DiffGrad2 \
             --output=${optimizer}-${model_filename}-${dataset}-%N-%j.out \
             --wrap="
@@ -48,4 +57,3 @@ for dataset in "${!pairs[@]}"; do
 done
 
 echo "All jobs submitted."
-
