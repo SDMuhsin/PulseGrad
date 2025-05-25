@@ -4,7 +4,7 @@ export HF_HOME=./data
 export TORCH_HOME=./data
 
 # Default learning rate
-DEFAULT_LR=0.0001
+DEFAULT_LR=0.0005
 
 # Check the number of arguments
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
@@ -21,7 +21,7 @@ lr=${2:-$DEFAULT_LR} # Use provided lr or default if not set
 echo "Running task: $task"
 echo "Using learning rate: $lr"
 
-models=("google-bert/bert-large-uncased") # You can add more models here e.g., ("google-bert/bert-large-uncased" "microsoft/deberta-v3-large")
+models=("albert/albert-base-v2") # You can add more models here e.g., ("google-bert/bert-large-uncased" "microsoft/deberta-v3-large")
 
 optimizers=("adan" "adagrad" "adadelta" "rmsprop" "amsgrad" "adam" "experimental" "diffgrad" "adabelief" "adamp" "madgrad" "lion")
 

@@ -233,7 +233,7 @@ def main():
     # Finer‑grained hyper‑parameter sweeps
     # -------------------------------------------------------------------
     sweep = {
-        "lr":    [1e-4, 2e-4, 3e-4, 5e-4, 7e-4, 1e-3, 2e-3, 3e-3, 5e-3, 7e-3, 1e-2],
+        "lr":    [1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2],
         "betas": [0.5, 0.6, 0.7, 0.8, 0.9, 0.95],
         "gamma": [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
         "eps":   [1e-8, 3e-8, 1e-7, 3e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4],
@@ -264,6 +264,9 @@ def main():
             common_cfg = {"lr": 1e-3, "betas": (0.9, 0.999), "eps": 1e-8, "gamma": 0.3}
             if args.ablation == "lr":
                 common_cfg["lr"] = val
+                common_cfg["gamma"] = 0.7
+                common_cfg["eps"] = 1e-4
+
             elif args.ablation == "betas":
                 common_cfg["betas"] = (val, 0.999)
             elif args.ablation == "gamma":

@@ -61,7 +61,7 @@ def get_optimizer(optimizer_name, model_params, lr):
     elif optimizer_name == 'adam':
         return optim.Adam(model_params, lr=lr)
     elif optimizer_name == 'experimental':
-        return Experimental(model_params, lr=lr)
+        return Experimental(model_params, lr=lr, gamma=0.7)
     elif optimizer_name == 'diffgrad':
         return diffgrad(model_params, lr=lr)
     elif optimizer_name == 'adabelief':
