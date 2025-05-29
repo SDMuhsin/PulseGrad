@@ -51,52 +51,77 @@ def main():
     with open(args.csv_file, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
-        fieldnames = reader.fieldnames  # e.g. ["task_name", "optimizer", "epochs", "batch_size", "lr", "accuracy", ...]
+        fieldnames = reader.fieldnames
 
-    # We'll treat the first five as standard: ["task_name", "optimizer", "epochs", "batch_size", "lr"]
-    # The rest are the actual metrics (like "accuracy", "f1", "matthews_correlation", etc.).
     if not fieldnames:
         print("No columns found in CSV.")
         sys.exit(1)
 
-    # Apply filters (simple exact match).
-    # Filters might be e.g. --task_name=cola, --optimizer=adam, etc.
-    # They match the string in the CSV, ignoring case.
+    # --- Start of changed section ---
+    # Apply filters.
+    # For numeric-like columns (e.g. lr, epochs, batch_size), attempt numeric comparison.
     filtered_rows = []
+    # Define keys that should be attempted for numeric comparison if possible
+    # Add other column names here if they also need numeric filter comparison
+    numeric_filter_keys = {"lr", "epochs", "batch_size"}
+
     for row in rows:
         match = True
-        for k, v in filters.items():
+        for k, v_filter in filters.items():  # k is filter key, v_filter is filter value string
             if k not in fieldnames:
                 print(f"Warning: '{k}' is not a valid column name; ignoring filter.")
                 continue
-            if v is not None:
-                # compare ignoring case
-                if row[k] is None or row[k].lower() != v.lower():
+
+            if v_filter is None:  # For flags without values, if any were parsed this way
+                # This logic implies that a filter key present without a value doesn't filter rows,
+                # which is fine for --key=value or --key value patterns.
+                continue
+
+            csv_val_str = row.get(k) # Get the value from the CSV row as a string
+
+            if csv_val_str is None: # If the cell in CSV is empty for this column
+                match = False # An empty cell cannot match a filter that expects a value
+                break
+
+            # Attempt numeric comparison for designated keys
+            if k in numeric_filter_keys:
+                try:
+                    # Try to convert both CSV value and filter value to float
+                    num_csv_val = float(csv_val_str)
+                    num_filter_val = float(v_filter)
+                    if num_csv_val != num_filter_val:
+                        match = False
+                        break
+                except ValueError:
+                    # If conversion to float fails for either, fall back to case-insensitive string comparison
+                    if csv_val_str.lower() != v_filter.lower():
+                        match = False
+                        break
+            else:
+                # For non-numeric keys, use original case-insensitive string comparison
+                if csv_val_str.lower() != v_filter.lower():
                     match = False
                     break
+        
         if match:
             filtered_rows.append(row)
+    # --- End of changed section ---
 
     if not filtered_rows:
         print("No results match the given filters.")
         sys.exit(0)
 
     # Construct the table for display.
-    # We always want to show the standard columns in front:
     standard_columns = [ "model_name_or_path", "task_name", "optimizer", "epochs", "batch_size", "lr"]
     metric_columns = [c for c in fieldnames if c not in standard_columns]
 
-    # The final display order of columns:
     display_columns = standard_columns + metric_columns
 
-    # Create a list of lists for 'tabulate'
     table_data = []
     for row in filtered_rows:
         row_list = []
         for col in display_columns:
             val = row.get(col, "")
-            # Attempt to format metrics as floats if possible
-            # (the CSV is stored as strings)
             if col not in standard_columns:
                 if val is None or val == "":
                     val = ""
@@ -109,9 +134,7 @@ def main():
             row_list.append(val)
         table_data.append(row_list)
 
-    # Build the header
     print(tabulate(table_data, headers=display_columns, tablefmt="grid"))
 
 if __name__ == "__main__":
     main()
-

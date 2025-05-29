@@ -19,7 +19,7 @@ dataset_times["CIFAR100"]="4-00:00:00" # 3 days 4 hours
 #dataset_times["STL10"]="7-00:00:00" # Default for STL10, if uncommented
 
 # List of optimizers to loop through
-optimizers=( adabelief adamp madgrad adan lion ) #adagrad adadelta rmsprop amsgrad adam experimental diffgrad)
+optimizers=( experimentalv2 ) #adabelief adamp madgrad adan lion ) #adagrad adadelta rmsprop amsgrad adam experimental diffgrad)
 
 # Loop through each dataset-model pair
 for dataset in "${!pairs[@]}"; do

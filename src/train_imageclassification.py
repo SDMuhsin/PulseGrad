@@ -25,6 +25,7 @@ from experimental.lance import LANCE
 from experimental.diffgrad import diffgrad
 from experimental.cosmic import COSMIC
 from experimental.exp import Experimental
+from experimental.exp2 import ExperimentalV2
 
 def get_dataset(dataset_name, transform, root='./data'):
     """
@@ -154,6 +155,8 @@ def get_optimizer(optimizer_name, model_params, lr):
         optimizer = optim.Adam(model_params, lr=lr)
     elif optimizer_name == 'experimental':
         optimizer = Experimental(model_params, lr=lr)
+    elif optimizer_name == 'experimentalv2':
+        return ExperimentalV2(model_params, lr=lr, gamma=0.3)
     elif optimizer_name == 'diffgrad':
         optimizer = diffgrad(model_params, lr=lr)
     elif optimizer_name == 'adabelief':
@@ -286,7 +289,7 @@ def main():
                         ],
                         help="Model architecture to use")
     parser.add_argument('--optimizer', type=str, default='adam',
-                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'diffgrad','adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'adahessian', 'sophia'],
+                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'diffgrad','adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'adahessian', 'sophia','experimentalv2'],
                         help="Optimizer to use")
     parser.add_argument('--epochs', type=int, default=10, help="Number of training epochs")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size")

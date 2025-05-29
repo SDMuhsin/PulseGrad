@@ -1,4 +1,14 @@
+# Log
+
+Distilbert+albert runs for 3e-5 done (albert might have gaps).
+RUNNING PulseGradV2 on albert and distilbert
+RUNNING CNN results for extra optimizers at 0.001 learning rate
+NEXT  : 
+Transfer CNN to overleaf, interpret (CNN will finish in two days first, GLUE will take more time)
+If PulseGradV2 ends up good for GLUE, rewrite methodology, try for CNNs
+
 # [diffGrad: An Optimization Method for Convolutional Neural Networks](https://ieeexplore.ieee.org/document/8939562) 
+
 
 <span class="color-blue"></span><sup><img style="display:inline" 
 src="http://personal.strath.ac.uk/jinchang.ren/index_files/new.gif" alt="" /></sup> <span class="newNews">The PyTorch implementation of diffGrad can be found in [torch-optimizer](https://pypi.org/project/torch-optimizer/#diffgrad) and can easily be used by following.

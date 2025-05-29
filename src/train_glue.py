@@ -33,6 +33,7 @@ from transformers import (
 )
 from experimental.diffgrad import diffgrad
 from experimental.exp import Experimental
+from experimental.exp2 import ExperimentalV2
 from adabelief_pytorch import AdaBelief
 from adamp import AdamP                 # also exposes SGDP if you ever need it
 import madgrad                         # madgrad.MADGRAD(...)
@@ -61,7 +62,9 @@ def get_optimizer(optimizer_name, model_params, lr):
     elif optimizer_name == 'adam':
         return optim.Adam(model_params, lr=lr)
     elif optimizer_name == 'experimental':
-        return Experimental(model_params, lr=lr, gamma=0.7)
+        return Experimental(model_params, lr=lr, gamma=0.3)
+    elif optimizer_name == 'experimentalv2':
+        return ExperimentalV2(model_params, lr=lr, gamma=0.3)
     elif optimizer_name == 'diffgrad':
         return diffgrad(model_params, lr=lr)
     elif optimizer_name == 'adabelief':
@@ -116,7 +119,7 @@ def parse_args():
         "--optimizer",
         type=str,
         default="adam",
-        choices=["adagrad", "adadelta", "rmsprop", "amsgrad", "adam", "experimental", "diffgrad", 'adabelief', 'adamp', 'madgrad', 'adan', 'lion'],
+        choices=["adagrad", "adadelta", "rmsprop", "amsgrad", "adam", "experimental", "diffgrad", 'adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'experimentalv2'],
         help="Optimizer to use."
     )
     parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs.")
