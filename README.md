@@ -1,12 +1,9 @@
 # Log
 
-Distilbert+albert runs for 3e-5 done (albert might have gaps).
-RUNNING PulseGradV2 on albert and distilbert
-RUNNING CNN results for extra optimizers at 0.001 learning rate
+RUNNING PulseGradV2, CNN
 NEXT  : 
-Transfer CNN to overleaf, interpret (CNN will finish in two days first, GLUE will take more time)
-If PulseGradV2 ends up good for GLUE, rewrite methodology, try for CNNs
-
+PulseGradV2 good for transformers (but not the best), move to overleaf and interpret
+Running PulseGradV2 for CNNs, if good, transfer over
 # [diffGrad: An Optimization Method for Convolutional Neural Networks](https://ieeexplore.ieee.org/document/8939562) 
 
 

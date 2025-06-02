@@ -32,6 +32,7 @@ except ImportError:                                        # noqa: D401,E501
 
 try:
     from experimental.exp import Experimental as PulseGrad  # noqa: E402
+    from experimental.exp2 import ExperimentalV2 as PulseGradV2
 except ImportError:                                        # noqa: D401,E501
     PulseGrad = None
 # ──────────────────────────────────────────────────────────────────
@@ -215,6 +216,9 @@ if diffgrad is not None:
     AVAILABLE_OPTIMIZERS["diffgrad"] = diffgrad
 if PulseGrad is not None:
     AVAILABLE_OPTIMIZERS["pulsegrad"] = PulseGrad
+
+if PulseGradV2 is not None:
+    AVAILABLE_OPTIMIZERS["pulsegradv2"] = PulseGradV2
 # ──────────────────────────────────────────────────────────────────
 # CLI & MAIN
 # ------------------------------------------------------------------
