@@ -2,7 +2,7 @@
 echo "Beginning ablation.py sbatch script submissions."
 
 # Hyper‑parameters to ablate
-ablations=(lr betas gamma eps)
+ablations=(lr beta1 beta2 gamma eps)
 
 # Fixed dataset / model for this study
 dataset="CIFAR10"

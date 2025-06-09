@@ -11,6 +11,7 @@ baseline. When plotting, two figures are generated:
 Usage examples
 --------------
 python ablation_diffgrad_pulsegrad.py --ablation lr --plot
+python ablation_diffgrad_pulsegrad.py --ablation beta2 --plot
 python ablation_diffgrad_pulsegrad.py --ablation lr --plot --skip_run  # just plotting
 """
 import argparse
@@ -34,7 +35,8 @@ from torch.utils.data import DataLoader, Subset
 # Local optimizers
 # ---------------------------------------------------------------------------
 from experimental.diffgrad import diffgrad  # type: ignore
-from experimental.exp2 import ExperimentalV2 as PulseGrad  # rename for clarity
+from experimental.exp import Experimental as PulseGrad  # rename for clarity
+
 
 # ---------------------------------------------------------------------------
 # Reproducibility helpers
@@ -170,8 +172,9 @@ def _label(param_name: str) -> str:
     """Latex‑friendly label for axis titles."""
     return {
         "lr": "Learning rate (log10)",
-        "betas": "$\\beta_1$",  # first‑moment
-        "gamma": "$\\gamma$",   # PulseGrad hyper‑parameter
+        "beta1": "$\\beta_1$",      # first-moment
+        "beta2": "$\\beta_2$",      # second-moment
+        "gamma": "$\\gamma$",       # PulseGrad hyper-parameter
         "eps": "$\\epsilon$",
     }[param_name]
 
@@ -219,7 +222,7 @@ def plot_ablation_three(param_name: str, values, diff_stats, adam_stats, pulse_s
 
 def main():
     parser = argparse.ArgumentParser(description="Ablation study: DiffGrad, Adam, PulseGrad (with verbose output)")
-    parser.add_argument("--ablation", required=True, choices=["lr", "betas", "gamma", "eps"], help="Hyper‑parameter to vary")
+    parser.add_argument("--ablation", required=True, choices=["lr", "beta1", "beta2", "gamma", "eps"], help="Hyper‑parameter to vary")
     parser.add_argument("--dataset", default="CIFAR10")
     parser.add_argument("--model", default="resnet18")
     parser.add_argument("--epochs", type=int, default=5)
@@ -234,9 +237,10 @@ def main():
     # -------------------------------------------------------------------
     sweep = {
         "lr":    [x * 1e-3 for x in range(1,10)] + [x * 1e-4 for x in range(1,10)],
-        "betas": [0.5, 0.6, 0.7, 0.8, 0.9, 0.95],
+        "beta1": [0.5, 0.6, 0.7, 0.8, 0.9, 0.95],
+        "beta2": [0.95, 0.99, 0.995, 0.999, 0.9995],
         "gamma": [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
-        "eps":   [1e-8, 5e-8, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5, 5e-5, 1e-4,5e-4],
+        "eps":   [1e-8, 5e-8, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4],
     }
 
     values = sweep[args.ablation]
@@ -265,11 +269,11 @@ def main():
             common_cfg = {"lr": 1e-3, "betas": (0.9, 0.999), "eps": 1e-8, "gamma": 0.3}
             if args.ablation == "lr":
                 common_cfg["lr"] = val
-                #common_cfg["gamma"] = 0.7
-                #common_cfg["eps"] = 1e-4
 
-            elif args.ablation == "betas":
+            elif args.ablation == "beta1":
                 common_cfg["betas"] = (val, 0.999)
+            elif args.ablation == "beta2":
+                common_cfg["betas"] = (0.9, val)  # Keep beta1 fixed
             elif args.ablation == "gamma":
                 common_cfg["gamma"] = val
             elif args.ablation == "eps":
@@ -322,4 +326,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
