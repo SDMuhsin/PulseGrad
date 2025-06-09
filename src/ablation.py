@@ -233,11 +233,12 @@ def main():
     # Finer‑grained hyper‑parameter sweeps
     # -------------------------------------------------------------------
     sweep = {
-        "lr":    [x * 1e-3 for x in range(1,10)] + [x*1e-4 for x in range(1,10)], 
+        "lr":    [x * 1e-3 for x in range(1,10)] + [x * 1e-4 for x in range(1,10)],
         "betas": [0.5, 0.6, 0.7, 0.8, 0.9, 0.95],
         "gamma": [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7],
-        "eps":   [1e-8, 3e-8, 1e-7, 3e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4],
+        "eps":   [1e-8, 5e-8, 1e-7, 5e-7, 1e-6, 5e-6, 1e-5, 5e-5, 1e-4,5e-4],
     }
+
     values = sweep[args.ablation]
 
     results_dir = Path("./results"); results_dir.mkdir(exist_ok=True)
