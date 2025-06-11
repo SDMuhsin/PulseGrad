@@ -21,9 +21,9 @@ lr=${2:-$DEFAULT_LR} # Use provided lr or default if not set
 echo "Running task: $task"
 echo "Using learning rate: $lr"
 
-models=("distilbert/distilbert-base-uncased" "albert/albert-base-v2") # You can add more models here e.g., ("google-bert/bert-large-uncased" "microsoft/deberta-v3-large")
+models=("albert/albert-base-v2") # You can add more models here e.g., ("google-bert/bert-large-uncased" "microsoft/deberta-v3-large")
 
-optimizers=("experimentalv2") #("adan" "adagrad" "adadelta" "rmsprop" "amsgrad" "adam" "experimental" "diffgrad" "adabelief" "adamp" "madgrad" "lion")
+optimizers=("experimentalv3") #("adan" "adagrad" "adadelta" "rmsprop" "amsgrad" "adam" "experimental" "diffgrad" "adabelief" "adamp" "madgrad" "lion")
 
 # Loop through each model and optimizer combination
 for model in "${models[@]}"; do
