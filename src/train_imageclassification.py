@@ -24,7 +24,7 @@ from lion_pytorch import Lion
 from experimental.lance import LANCE
 from experimental.diffgrad import diffgrad
 from experimental.cosmic import COSMIC
-from experimental.exp import Experimental
+from experimental.fused_exp import Experimental
 from experimental.exp2 import ExperimentalV2
 
 def get_dataset(dataset_name, transform, root='./data'):
