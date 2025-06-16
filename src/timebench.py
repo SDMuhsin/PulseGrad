@@ -15,9 +15,22 @@ import numpy as np
 from pathlib import Path
 import csv
 import statistics # Keep for potential future use, though direct median is fine for now
+from adamp import AdamP                 # also exposes SGDP if you ever need it
+import madgrad                         # madgrad.MADGRAD(...)
+from adan_pytorch import Adan
+from lion_pytorch import Lion
+#from Sophia import SophiaG             # Sophia-G variant from the paper
+
+# Local experimental optimizers (ensure these modules are in your PYTHONPATH)
+from experimental.lance import LANCE
+from experimental.diffgrad import diffgrad
+from experimental.cosmic import COSMIC
+from experimental.exp import Experimental
+from experimental.exp2 import ExperimentalV2
+
 
 # Optimizer imports
-from experimental.eexp import ExperimentalOptimized as PulseGrad # Renamed as requested
+from experimental.fused_exp import Experimental as PulseGrad # Renamed as requested
 # Assuming these are in the PYTHONPATH or current directory structure as in the reference
 # If 'experimental' is a directory, ensure __init__.py is present
 # For stubs, if they are truly just optimizers, they should accept params and lr.
@@ -109,6 +122,52 @@ def get_optimizer_instance(optimizer_name, model_params, lr=1e-3):
             print(f"Optimizer {optimizer_name} was requested but not found/imported. Skipping.")
             return None
         raise ValueError(f"Unknown or unavailable optimizer: {optimizer_name}")
+
+
+def get_optimizer_instance(optimizer_name, model_params, lr=1e-3):
+    """
+    Return an optimizer based on its name.
+    """
+    optimizer_name = optimizer_name.lower()
+    if optimizer_name == 'adagrad':
+        optimizer = optim.Adagrad(model_params, lr=lr)
+    elif optimizer_name == 'adadelta':
+        optimizer = optim.Adadelta(model_params, lr=lr)
+    elif optimizer_name == 'rmsprop':
+        optimizer = optim.RMSprop(model_params, lr=lr)
+    elif optimizer_name == 'amsgrad':
+        # AMSGrad is implemented as a flag in Adam
+        optimizer = optim.Adam(model_params, lr=lr, amsgrad=True)
+    elif optimizer_name == 'adam':
+        optimizer = optim.Adam(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad':
+        optimizer = PulseGrad(model_params, lr=lr)
+    elif optimizer_name == 'diffgrad':
+        optimizer = diffgrad(model_params, lr=lr)
+
+    elif optimizer_name == 'adamp':
+        optimizer = AdamP(model_params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-2)
+
+    elif optimizer_name == 'madgrad':
+        optimizer = madgrad.MADGRAD(model_params, lr=lr, momentum=0.9, weight_decay=1e-6)
+
+    elif optimizer_name == 'adan':
+        # three betas per the paper: β1, β2, β3
+        optimizer = Adan(model_params, lr=lr, betas=(0.98, 0.92, 0.99),
+                         weight_decay=1e-2)
+
+    elif optimizer_name == 'lion':
+        optimizer = Lion(model_params, lr=lr, weight_decay=1e-2)
+
+
+ #   elif optimizer_name == 'sophia':
+        # Sophia-G default hyper-params from authors
+ #       optimizer = SophiaG(model_params, lr=lr, betas=(0.965, 0.99),
+ #                           rho=0.01, weight_decay=1e-1)
+    else:
+        raise ValueError(f"Unknown optimizer {optimizer_name}")
+
+    return optimizer
 
 # --- Benchmarking Core ---
 def benchmark_optimizer_single_run(model, optimizer_name, device, num_steps=100, batch_size=64, input_features=128, num_classes=10, lr=1e-3):
@@ -349,7 +408,7 @@ def main():
         "--optimizers",
         type=str,
         nargs="+",
-        default=["sgd", "adam", "pulsegrad", "adabelief", "lion", "adan"], # Add more as needed and available
+        default=["adagrad","rmsprop","amsgrad","adam","adagrad","adan","adamp","lion","madgrad","diffgrad","pulsegrad"], # Add more as needed and available
         help="List of optimizer names to benchmark."
     )
     parser.add_argument(
