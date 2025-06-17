@@ -14,12 +14,12 @@ import os
 import numpy as np
 from pathlib import Path
 import csv
-import statistics # Keep for potential future use, though direct median is fine for now
-from adamp import AdamP                 # also exposes SGDP if you ever need it
-import madgrad                         # madgrad.MADGRAD(...)
+import statistics
+from adamp import AdamP              # also exposes SGDP if you ever need it
+import madgrad                   # madgrad.MADGRAD(...)
 from adan_pytorch import Adan
 from lion_pytorch import Lion
-#from Sophia import SophiaG             # Sophia-G variant from the paper
+#from Sophia import SophiaG          # Sophia-G variant from the paper
 
 # Local experimental optimizers (ensure these modules are in your PYTHONPATH)
 from experimental.lance import LANCE
@@ -123,52 +123,6 @@ def get_optimizer_instance(optimizer_name, model_params, lr=1e-3):
             return None
         raise ValueError(f"Unknown or unavailable optimizer: {optimizer_name}")
 
-
-def get_optimizer_instance(optimizer_name, model_params, lr=1e-3):
-    """
-    Return an optimizer based on its name.
-    """
-    optimizer_name = optimizer_name.lower()
-    if optimizer_name == 'adagrad':
-        optimizer = optim.Adagrad(model_params, lr=lr)
-    elif optimizer_name == 'adadelta':
-        optimizer = optim.Adadelta(model_params, lr=lr)
-    elif optimizer_name == 'rmsprop':
-        optimizer = optim.RMSprop(model_params, lr=lr)
-    elif optimizer_name == 'amsgrad':
-        # AMSGrad is implemented as a flag in Adam
-        optimizer = optim.Adam(model_params, lr=lr, amsgrad=True)
-    elif optimizer_name == 'adam':
-        optimizer = optim.Adam(model_params, lr=lr)
-    elif optimizer_name == 'pulsegrad':
-        optimizer = PulseGrad(model_params, lr=lr)
-    elif optimizer_name == 'diffgrad':
-        optimizer = diffgrad(model_params, lr=lr)
-
-    elif optimizer_name == 'adamp':
-        optimizer = AdamP(model_params, lr=lr, betas=(0.9, 0.999), weight_decay=1e-2)
-
-    elif optimizer_name == 'madgrad':
-        optimizer = madgrad.MADGRAD(model_params, lr=lr, momentum=0.9, weight_decay=1e-6)
-
-    elif optimizer_name == 'adan':
-        # three betas per the paper: β1, β2, β3
-        optimizer = Adan(model_params, lr=lr, betas=(0.98, 0.92, 0.99),
-                         weight_decay=1e-2)
-
-    elif optimizer_name == 'lion':
-        optimizer = Lion(model_params, lr=lr, weight_decay=1e-2)
-
-
- #   elif optimizer_name == 'sophia':
-        # Sophia-G default hyper-params from authors
- #       optimizer = SophiaG(model_params, lr=lr, betas=(0.965, 0.99),
- #                           rho=0.01, weight_decay=1e-1)
-    else:
-        raise ValueError(f"Unknown optimizer {optimizer_name}")
-
-    return optimizer
-
 # --- Benchmarking Core ---
 def benchmark_optimizer_single_run(model, optimizer_name, device, num_steps=100, batch_size=64, input_features=128, num_classes=10, lr=1e-3):
     """
@@ -255,17 +209,17 @@ def run_experiments(optimizer_names, model_configs, devices, num_steps, batch_si
                 # Check if optimizer is available
                 temp_opt = get_optimizer_instance(opt_name, model_instance.parameters(), lr)
                 if temp_opt is None and opt_name not in ['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'sgd', 'pulsegrad']: # built-in or pulsegrad
-                    print(f"    Optimizer {opt_name} is not available. Skipping.")
+                    print(f"      Optimizer {opt_name} is not available. Skipping.")
                     continue
                 del temp_opt # clean up
 
-                print(f"    Benchmarking Optimizer: {opt_name}...")
+                print(f"      Benchmarking Optimizer: {opt_name}...")
                 try:
                     # Multiple runs for stability
                     num_runs = 3
                     run_results_list = []
                     for i in range(num_runs):
-                        print(f"      Run {i+1}/{num_runs}...")
+                        print(f"          Run {i+1}/{num_runs}...")
                         # Re-create model for fresh optimizer state and memory stats if needed,
                         # though for this benchmark, the model itself doesn't change much.
                         # Crucially, GPU memory stats should be reset if possible.
@@ -284,22 +238,23 @@ def run_experiments(optimizer_names, model_configs, devices, num_steps, batch_si
                     if not run_results_list:
                         continue
 
-                    # Aggregate results (e.g., median for time, max for memory)
-                    # For simplicity, we'll take the median of times and max of memory.
-                    # More sophisticated: median for all, or mean +/- std.
-                    # Let's use median for times and max for memory, which seems reasonable.
-                    final_res = run_results_list[0].copy() # template
-                    final_res["avg_step_time_ms"] = statistics.median([r["avg_step_time_ms"] for r in run_results_list])
-                    final_res["peak_cpu_mem_usage_mb"] = max([r["peak_cpu_mem_usage_mb"] for r in run_results_list])
-                    if device.type == 'cuda':
-                         final_res["peak_gpu_mem_allocated_mb"] = max([r["peak_gpu_mem_allocated_mb"] for r in run_results_list])
-                    final_res["model_config_name"] = model_name # For easier grouping
+                    # Add model config name to each run's results and append to the main list.
+                    # This provides all data points to Seaborn for automatic mean/CI calculation.
+                    for res in run_results_list:
+                        res["model_config_name"] = model_name
+                    all_results.extend(run_results_list)
 
-                    all_results.append(final_res)
-                    print(f"      Done. Avg Step Time: {final_res['avg_step_time_ms']:.2f}ms, Peak GPU Mem: {final_res['peak_gpu_mem_allocated_mb']:.2f}MB")
+                    # Calculate summary stats for console output only
+                    median_time = statistics.median([r["avg_step_time_ms"] for r in run_results_list])
+                    peak_gpu_mem = 0
+                    if device.type == 'cuda' and any("peak_gpu_mem_allocated_mb" in r for r in run_results_list):
+                        peak_gpu_mem = max([r["peak_gpu_mem_allocated_mb"] for r in run_results_list])
+                    
+                    print(f"          Done. Median Step Time: {median_time:.2f}ms, Peak GPU Mem: {peak_gpu_mem:.2f}MB")
+
 
                 except Exception as e:
-                    print(f"    ERROR benchmarking {opt_name} on {model_name} with {device.type}: {e}")
+                    print(f"      ERROR benchmarking {opt_name} on {model_name} with {device.type}: {e}")
                     import traceback
                     traceback.print_exc()
 
@@ -315,86 +270,105 @@ def generate_tables_and_plots(df_results, results_dir):
     sns.set_theme(style="whitegrid")
 
     # --- Wall Clock Time ---
-    # Table
+    # Table (use median for summary table)
     time_table_data = []
-    for device_type in df_results['device'].unique():
-        df_device = df_results[df_results['device'] == device_type]
-        pivot_time = df_device.pivot_table(index="optimizer", columns="model_config_name", values="avg_step_time_ms")
+    # Group by the identifiers and calculate the median time for the summary table
+    summary_df_time = df_results.groupby(['device', 'optimizer', 'model_config_name', 'model_params'])['avg_step_time_ms'].median().reset_index()
+
+    for device_type in summary_df_time['device'].unique():
+        df_device_summary = summary_df_time[summary_df_time['device'] == device_type]
+        pivot_time = df_device_summary.pivot_table(index="optimizer", columns="model_config_name", values="avg_step_time_ms")
         pivot_time = pivot_time.round(2)
         pivot_time.columns = [f"{col} (ms)" for col in pivot_time.columns]
         pivot_time.to_csv(Path(results_dir) / f"wall_clock_time_{device_type}.csv")
-        print(f"\nWall Clock Time (ms) - {device_type.upper()}:\n", pivot_time)
+        print(f"\nWall Clock Time (Median, ms) - {device_type.upper()}:\n", pivot_time)
         time_table_data.append(pivot_time.reset_index().rename(columns={'optimizer': f'Optimizer ({device_type.upper()})'}))
 
-    # Plot (Scalability of Time)
-    plt.figure(figsize=(12, 7))
-    plot_df_time = df_results.copy()
-    plot_df_time['Model Parameters (log scale)'] = np.log10(plot_df_time['model_params']) # Use log for x-axis if param range is large
-    g = sns.lineplot(data=plot_df_time, x="model_params", y="avg_step_time_ms", hue="optimizer", style="device", marker="o", markersize=8, linewidth=2)
-    plt.xlabel("Number of Model Parameters", fontsize=14)
-    plt.ylabel("Average Step Time (ms)", fontsize=14)
-    plt.title("Optimizer Wall Clock Time vs. Model Size", fontsize=16, fontweight='bold')
-    plt.legend(title="Optimizer | Device", bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
-    plt.xscale('log') # Better for wide range of params
-    plt.yscale('log') # Often step time also scales non-linearly
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.tight_layout()
-    plt.savefig(Path(results_dir) / "scalability_wall_clock_time.png", dpi=300)
-    plt.savefig(Path(results_dir) / "scalability_wall_clock_time.pdf", dpi=300)
-    print(f"\nSaved plot: {Path(results_dir) / 'scalability_wall_clock_time.png'}")
-    plt.close()
+
+    # Plot (Scalability of Time) - Separate plot for each device
+    # The lineplot will automatically show the mean and a 95% confidence interval as the error band.
+    for device_type in df_results['device'].unique():
+        plt.figure(figsize=(12, 7))
+        df_device = df_results[df_results['device'] == device_type].copy()
+
+        sns.lineplot(
+            data=df_device,
+            x="model_params",
+            y="avg_step_time_ms",
+            hue="optimizer",
+            marker="o",
+            markersize=8,
+            linewidth=2
+        )
+
+        plt.xlabel("Number of Model Parameters", fontsize=14)
+        plt.ylabel("Average Step Time (ms) with 95% CI", fontsize=14) # Clarified y-axis
+        plt.title(f"Optimizer Wall Clock Time vs. Model Size ({device_type.upper()})", fontsize=16, fontweight='bold')
+        plt.legend(title="Optimizer", bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.tight_layout()
+        
+        plot_path_png = Path(results_dir) / f"scalability_wall_clock_time_{device_type}.png"
+        plot_path_pdf = Path(results_dir) / f"scalability_wall_clock_time_{device_type}.pdf"
+        plt.savefig(plot_path_png, dpi=300, bbox_inches='tight')
+        plt.savefig(plot_path_pdf, dpi=300, bbox_inches='tight')
+        print(f"\nSaved plot: {plot_path_png}")
+        plt.close()
 
 
     # --- Memory Usage ---
     # GPU Memory Table & Plot (if GPU results exist)
     df_gpu = df_results[df_results['device'] == 'cuda']
     if not df_gpu.empty:
-        pivot_gpu_mem = df_gpu.pivot_table(index="optimizer", columns="model_config_name", values="peak_gpu_mem_allocated_mb")
+        # For tables, we show the max value across runs
+        summary_df_gpu = df_gpu.groupby(['optimizer', 'model_config_name'])['peak_gpu_mem_allocated_mb'].max().reset_index()
+        pivot_gpu_mem = summary_df_gpu.pivot_table(index="optimizer", columns="model_config_name", values="peak_gpu_mem_allocated_mb")
         pivot_gpu_mem = pivot_gpu_mem.round(2)
         pivot_gpu_mem.columns = [f"{col} (MB)" for col in pivot_gpu_mem.columns]
         pivot_gpu_mem.to_csv(Path(results_dir) / "peak_gpu_memory.csv")
         print(f"\nPeak GPU Memory (MB):\n", pivot_gpu_mem)
 
         plt.figure(figsize=(12, 7))
-        plot_df_gpu_mem = df_gpu.copy()
-        g = sns.lineplot(data=plot_df_gpu_mem, x="model_params", y="peak_gpu_mem_allocated_mb", hue="optimizer", marker="o", markersize=8, linewidth=2)
+        # The plot will show error bars (95% CI) based on variability across runs
+        sns.lineplot(data=df_gpu, x="model_params", y="peak_gpu_mem_allocated_mb", hue="optimizer", marker="o", markersize=8, linewidth=2)
         plt.xlabel("Number of Model Parameters", fontsize=14)
-        plt.ylabel("Peak GPU Memory Allocated (MB)", fontsize=14)
+        plt.ylabel("Peak GPU Memory Allocated (MB) with 95% CI", fontsize=14)
         plt.title("Optimizer GPU Memory vs. Model Size", fontsize=16, fontweight='bold')
         plt.legend(title="Optimizer", bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
         plt.xscale('log')
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         plt.tight_layout()
-        plt.savefig(Path(results_dir) / "scalability_gpu_memory.png", dpi=300)
-        plt.savefig(Path(results_dir) / "scalability_gpu_memory.pdf", dpi=300)
+        plt.savefig(Path(results_dir) / "scalability_gpu_memory.png", dpi=300, bbox_inches='tight')
+        plt.savefig(Path(results_dir) / "scalability_gpu_memory.pdf", dpi=300, bbox_inches='tight')
         print(f"\nSaved plot: {Path(results_dir) / 'scalability_gpu_memory.png'}")
         plt.close()
 
     # CPU Memory Table & Plot
-    # Note: CPU memory is trickier as it's total process RSS. Differences might be subtle or noisy.
-    df_cpu_mem = df_results[df_results['device'] == 'cpu'] # Or analyze for both, if CPU part of optimizer state is significant
-    if not df_cpu_mem.empty : # Focus on CPU device runs, or all if you want to see overhead on GPU runs too
-        pivot_cpu_mem = df_cpu_mem.pivot_table(index="optimizer", columns="model_config_name", values="peak_cpu_mem_usage_mb")
+    df_cpu_runs = df_results[df_results['device'] == 'cpu']
+    if not df_cpu_runs.empty:
+        summary_df_cpu = df_cpu_runs.groupby(['optimizer', 'model_config_name'])['peak_cpu_mem_usage_mb'].max().reset_index()
+        pivot_cpu_mem = summary_df_cpu.pivot_table(index="optimizer", columns="model_config_name", values="peak_cpu_mem_usage_mb")
         pivot_cpu_mem = pivot_cpu_mem.round(2)
         pivot_cpu_mem.columns = [f"{col} (MB)" for col in pivot_cpu_mem.columns]
         pivot_cpu_mem.to_csv(Path(results_dir) / "peak_cpu_memory_process.csv")
         print(f"\nPeak CPU Memory (Process RSS, MB) - for CPU runs:\n", pivot_cpu_mem)
 
         plt.figure(figsize=(12, 7))
-        plot_df_cpu_mem = df_cpu_mem.copy()
-        g = sns.lineplot(data=plot_df_cpu_mem, x="model_params", y="peak_cpu_mem_usage_mb", hue="optimizer", marker="o", markersize=8, linewidth=2)
+        sns.lineplot(data=df_cpu_runs, x="model_params", y="peak_cpu_mem_usage_mb", hue="optimizer", marker="o", markersize=8, linewidth=2)
         plt.xlabel("Number of Model Parameters", fontsize=14)
-        plt.ylabel("Peak Process CPU Memory (RSS, MB)", fontsize=14)
+        plt.ylabel("Peak Process CPU Memory (RSS, MB) with 95% CI", fontsize=14)
         plt.title("Optimizer CPU Memory (Process) vs. Model Size (CPU Runs)", fontsize=16, fontweight='bold')
         plt.legend(title="Optimizer", bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
         plt.xscale('log')
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         plt.tight_layout()
-        plt.savefig(Path(results_dir) / "scalability_cpu_memory.png", dpi=300)
-        plt.savefig(Path(results_dir) / "scalability_cpu_memory.pdf", dpi=300)
+        plt.savefig(Path(results_dir) / "scalability_cpu_memory.png", dpi=300, bbox_inches='tight')
+        plt.savefig(Path(results_dir) / "scalability_cpu_memory.pdf", dpi=300, bbox_inches='tight')
         print(f"\nSaved plot: {Path(results_dir) / 'scalability_cpu_memory.png'}")
         plt.close()
 
@@ -421,7 +395,7 @@ def main():
     parser.add_argument(
         "--num_steps",
         type=int,
-        default=2000, # Increased for better averaging after warmup
+        default=4000, # Increased for better averaging after warmup
         help="Number of optimizer steps per run."
     )
     parser.add_argument(
@@ -458,7 +432,7 @@ def main():
         "--model_hidden_sizes",
         type=int,
         nargs="+",
-        default=[64, 128, 256, 512, 1024,2048], # Hidden sizes for different model scales
+        default=[64, 128, 256, 512, 1024, 2048], # Hidden sizes for different model scales
         help="List of hidden sizes for MLP layers for scalability testing."
     )
     parser.add_argument(
@@ -485,7 +459,8 @@ def main():
 
     # Filter out optimizers that couldn't be imported
     available_optimizers = []
-    for opt_name in args.optimizers:
+    unique_optimizers = sorted(list(set(args.optimizers))) # Remove duplicates and sort
+    for opt_name in unique_optimizers:
         opt_name_lower = opt_name.lower()
         if opt_name_lower == 'pulsegrad' or opt_name_lower in ['sgd', 'adam', 'adagrad', 'adadelta', 'rmsprop', 'amsgrad']:
             available_optimizers.append(opt_name)
