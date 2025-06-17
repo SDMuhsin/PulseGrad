@@ -415,13 +415,13 @@ def main():
         "--devices",
         type=str,
         nargs="+",
-        default=["cpu", "cuda"],
+        default=["cuda"],
         help="List of devices to benchmark on ('cpu', 'cuda')."
     )
     parser.add_argument(
         "--num_steps",
         type=int,
-        default=200, # Increased for better averaging after warmup
+        default=2000, # Increased for better averaging after warmup
         help="Number of optimizer steps per run."
     )
     parser.add_argument(
@@ -458,7 +458,7 @@ def main():
         "--model_hidden_sizes",
         type=int,
         nargs="+",
-        default=[64, 128, 256, 512, 1024], # Hidden sizes for different model scales
+        default=[64, 128, 256, 512, 1024,2048], # Hidden sizes for different model scales
         help="List of hidden sizes for MLP layers for scalability testing."
     )
     parser.add_argument(
