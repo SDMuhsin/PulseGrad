@@ -188,16 +188,16 @@ def run_experiments(optimizer_names, model_configs, devices, num_steps, batch_si
             for opt_name in optimizer_names:
                 temp_opt = get_optimizer_instance(opt_name, model_instance.parameters(), lr)
                 if temp_opt is None and opt_name not in ['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'sgd', 'pulsegrad']:
-                    print(f"      Optimizer {opt_name} is not available. Skipping.")
+                    print(f"    Optimizer {opt_name} is not available. Skipping.")
                     continue
                 del temp_opt
 
-                print(f"      Benchmarking Optimizer: {opt_name}...")
+                print(f"    Benchmarking Optimizer: {opt_name}...")
                 try:
-                    num_runs = 20
+                    num_runs = 1000
                     run_results_list = []
                     for i in range(num_runs):
-                        print(f"            Run {i+1}/{num_runs}...")
+                        print(f"          Run {i+1}/{num_runs}...")
                         current_model = SimpleMLP(input_features, config['hidden_size'], config['num_layers'], num_classes)
                         res = benchmark_optimizer_single_run(
                             current_model, opt_name, device,
@@ -224,7 +224,7 @@ def run_experiments(optimizer_names, model_configs, devices, num_steps, batch_si
                     print(f"            Done. Median Step Time: {median_time:.2f}ms, Peak GPU Mem: {peak_gpu_mem:.2f}MB")
 
                 except Exception as e:
-                    print(f"      ERROR benchmarking {opt_name} on {model_name} with {device.type}: {e}")
+                    print(f"    ERROR benchmarking {opt_name} on {model_name} with {device.type}: {e}")
                     import traceback
                     traceback.print_exc()
 
@@ -239,6 +239,12 @@ def generate_tables_and_plots(df_results, results_dir):
     Path(results_dir).mkdir(parents=True, exist_ok=True)
     sns.set_theme(style="whitegrid")
 
+    # Define font sizes for camera-ready plots
+    title_fontsize = 20
+    label_fontsize = 18
+    legend_fontsize = 14
+    tick_fontsize = 14
+
     # Wall Clock Time Table
     summary_df_time = df_results.groupby(['device', 'optimizer', 'model_config_name', 'model_params'])['avg_step_time_ms'].median().reset_index()
     for device_type in summary_df_time['device'].unique():
@@ -251,7 +257,7 @@ def generate_tables_and_plots(df_results, results_dir):
 
     # Wall Clock Time Plot
     for device_type in df_results['device'].unique():
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(12, 8)) # Increased figure size for better readability
         df_device = df_results[df_results['device'] == device_type].copy()
         
         sns.lineplot(
@@ -265,13 +271,14 @@ def generate_tables_and_plots(df_results, results_dir):
             errorbar="sd"  # Explicitly use standard deviation for error bands
         )
 
-        plt.xlabel("Number of Model Parameters", fontsize=12)
-        plt.ylabel("Average Step Time (ms)", fontsize=12)
-        plt.title(f"Optimizer Wall Clock Time vs. Model Size ({device_type.upper()})", fontsize=14, fontweight='bold')
-        plt.legend(title="Optimizer", fontsize=10)
+        plt.xlabel("Number of Model Parameters", fontsize=label_fontsize)
+        plt.ylabel("Average Step Time (ms)", fontsize=label_fontsize)
+        plt.title(f"Optimizer Wall Clock Time vs. Model Size ({device_type.upper()})", fontsize=title_fontsize, fontweight='bold')
+        plt.legend(title="Optimizer", fontsize=legend_fontsize, title_fontsize=legend_fontsize)
         plt.xscale('log')
         plt.yscale('log')
         plt.grid(True, linestyle="--", linewidth=0.5)
+        plt.tick_params(axis='both', which='major', labelsize=tick_fontsize) # Adjust tick label size
         plt.tight_layout()
         
         plot_path_png = Path(results_dir) / f"scalability_wall_clock_time_{device_type}.png"
@@ -291,14 +298,15 @@ def generate_tables_and_plots(df_results, results_dir):
         pivot_gpu_mem.to_csv(Path(results_dir) / "peak_gpu_memory.csv")
         print(f"\nPeak GPU Memory (MB):\n", pivot_gpu_mem)
 
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(12, 8)) # Increased figure size
         sns.lineplot(data=df_gpu, x="model_params", y="peak_gpu_mem_allocated_mb", hue="optimizer", marker="o", markersize=8, linewidth=2, errorbar="sd")
-        plt.xlabel("Number of Model Parameters", fontsize=12)
-        plt.ylabel("Peak GPU Memory Allocated (MB)", fontsize=12)
-        plt.title("Optimizer GPU Memory vs. Model Size", fontsize=14, fontweight='bold')
-        plt.legend(title="Optimizer", fontsize=10)
+        plt.xlabel("Number of Model Parameters", fontsize=label_fontsize)
+        plt.ylabel("Peak GPU Memory Allocated (MB)", fontsize=label_fontsize)
+        plt.title("Optimizer GPU Memory vs. Model Size", fontsize=title_fontsize, fontweight='bold')
+        plt.legend(title="Optimizer", fontsize=legend_fontsize, title_fontsize=legend_fontsize)
         plt.xscale('log')
         plt.grid(True, linestyle="--", linewidth=0.5)
+        plt.tick_params(axis='both', which='major', labelsize=tick_fontsize) # Adjust tick label size
         plt.tight_layout()
         plt.savefig(Path(results_dir) / "scalability_gpu_memory.png", dpi=300)
         plt.savefig(Path(results_dir) / "scalability_gpu_memory.pdf", dpi=300)
@@ -315,14 +323,15 @@ def generate_tables_and_plots(df_results, results_dir):
         pivot_cpu_mem.to_csv(Path(results_dir) / "peak_cpu_memory_process.csv")
         print(f"\nPeak CPU Memory (Process RSS, MB) - for CPU runs:\n", pivot_cpu_mem)
 
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(12, 8)) # Increased figure size
         sns.lineplot(data=df_cpu_runs, x="model_params", y="peak_cpu_mem_usage_mb", hue="optimizer", marker="o", markersize=8, linewidth=2, errorbar="sd")
-        plt.xlabel("Number of Model Parameters", fontsize=12)
-        plt.ylabel("Peak Process CPU Memory (RSS, MB)", fontsize=12)
-        plt.title("Optimizer CPU Memory (Process) vs. Model Size (CPU Runs)", fontsize=14, fontweight='bold')
-        plt.legend(title="Optimizer", fontsize=10)
+        plt.xlabel("Number of Model Parameters", fontsize=label_fontsize)
+        plt.ylabel("Peak Process CPU Memory (RSS, MB)", fontsize=label_fontsize)
+        plt.title("Optimizer CPU Memory (Process) vs. Model Size (CPU Runs)", fontsize=title_fontsize, fontweight='bold')
+        plt.legend(title="Optimizer", fontsize=legend_fontsize, title_fontsize=legend_fontsize)
         plt.xscale('log')
         plt.grid(True, linestyle="--", linewidth=0.5)
+        plt.tick_params(axis='both', which='major', labelsize=tick_fontsize) # Adjust tick label size
         plt.tight_layout()
         plt.savefig(Path(results_dir) / "scalability_cpu_memory.png", dpi=300)
         plt.savefig(Path(results_dir) / "scalability_cpu_memory.pdf", dpi=300)
@@ -365,7 +374,7 @@ def main():
         "--model_num_layers",
         type=int,
         nargs="+",
-        default=[2, 4, 8],
+        default=[2, 4],
         help="List of number of hidden layers for MLP for scalability testing."
     )
     args = parser.parse_args()
