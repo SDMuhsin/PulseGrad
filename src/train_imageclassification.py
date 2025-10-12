@@ -18,7 +18,7 @@ from adamp import AdamP                 # also exposes SGDP if you ever need it
 import madgrad                         # madgrad.MADGRAD(...)
 from adan_pytorch import Adan
 from lion_pytorch import Lion
-#from Sophia import SophiaG             # Sophia-G variant from the paper
+from sophia import SophiaG             # Sophia-G variant from the paper
 
 # Local experimental optimizers (ensure these modules are in your PYTHONPATH)
 from experimental.lance import LANCE
@@ -176,11 +176,19 @@ def get_optimizer(optimizer_name, model_params, lr):
     elif optimizer_name == 'lion':
         optimizer = Lion(model_params, lr=lr, weight_decay=1e-2)
 
+    elif optimizer_name == 'sgd':
+        optimizer = optim.SGD(model_params, lr=lr)
 
- #   elif optimizer_name == 'sophia':
+    elif optimizer_name == 'sgd_momentum':
+        optimizer = optim.SGD(model_params, lr=lr, momentum=0.9)
+
+    elif optimizer_name == 'adamw':
+        optimizer = optim.AdamW(model_params, lr=lr, weight_decay=1e-2)
+
+    elif optimizer_name == 'sophia':
         # Sophia-G default hyper-params from authors
- #       optimizer = SophiaG(model_params, lr=lr, betas=(0.965, 0.99),
- #                           rho=0.01, weight_decay=1e-1)
+        optimizer = SophiaG(model_params, lr=lr, betas=(0.965, 0.99),
+                            rho=0.04, weight_decay=1e-1)
     else:
         raise ValueError(f"Unknown optimizer {optimizer_name}")
 
@@ -289,7 +297,7 @@ def main():
                         ],
                         help="Model architecture to use")
     parser.add_argument('--optimizer', type=str, default='adam',
-                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'diffgrad','adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'adahessian', 'sophia','experimentalv2'],
+                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'diffgrad','adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'adahessian', 'sophia','experimentalv2', 'sgd', 'sgd_momentum', 'adamw'],
                         help="Optimizer to use")
     parser.add_argument('--epochs', type=int, default=10, help="Number of training epochs")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size")
@@ -352,9 +360,9 @@ def main():
 
         # Create data loaders
         train_loader = DataLoader(train_subset, batch_size=args.batch_size,
-                                  shuffle=True, num_workers=2)
+                                  shuffle=True, num_workers=0)
         val_loader = DataLoader(val_subset, batch_size=args.batch_size,
-                                shuffle=False, num_workers=2)
+                                shuffle=False, num_workers=0)
 
         # ------------------------------
         # Load a fresh model for each fold
