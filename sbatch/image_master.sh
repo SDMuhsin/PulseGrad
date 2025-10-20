@@ -14,7 +14,7 @@ pairs["CIFAR10"]="densenet121"
 declare -A dataset_times
 dataset_times["MNIST"]="2-00:00:00"  # 1 day 4 hours
 dataset_times["FMNIST"]="2-00:00:00" # Default for FMNIST, can be adjusted
-dataset_times["CIFAR10"]="2-00:00:00" # 2 days
+dataset_times["CIFAR10"]="7-00:00:00" # 2 days
 dataset_times["CIFAR100"]="4-00:00:00" # 3 days 4 hours
 #dataset_times["STL10"]="7-00:00:00" # Default for STL10, if uncommented
 
@@ -42,18 +42,16 @@ for dataset in "${!pairs[@]}"; do
         sbatch \
             --nodes=1 \
             --ntasks-per-node=1 \
-            --cpus-per-task=1 \
+            --cpus-per-task=2 \
             --gpus=1 \
-            --mem=8000M \
+            --mem=16000M \
             --time=$job_time \
-            --chdir=/scratch/sdmuhsin/DiffGrad2 \
-            --output=${optimizer}-${model_filename}-${dataset}-%N-%j.out \
+            --output=./logs/${optimizer}-${model_filename}-${dataset}-%N-%j.out \
             --wrap="
                 export TRANSFORMERS_CACHE=\"./cache\"
                 export HF_HOME=\"./cache\"
                 export TORCH_HOME=\"./cache\"
-                module load python/3.10
-                module load arrow/16.1.0
+                module load arrow
                 source ./env/bin/activate
                 echo 'Environment loaded'
                 which python3
