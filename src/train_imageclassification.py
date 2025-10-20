@@ -1,6 +1,21 @@
 import argparse
 import random
 import numpy as np
+import os
+import csv
+import json
+import hashlib
+from datetime import datetime
+
+# Configure caching directories for offline operation
+# This ensures all model weights and downloads go to ./cache
+os.environ['TORCH_HOME'] = os.path.join(os.getcwd(), 'cache')
+os.environ['TRANSFORMERS_CACHE'] = os.path.join(os.getcwd(), 'cache')
+os.environ['HF_HOME'] = os.path.join(os.getcwd(), 'cache')
+
+# Create cache directory if it doesn't exist
+os.makedirs(os.environ['TORCH_HOME'], exist_ok=True)
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -9,9 +24,6 @@ import torchvision.transforms as transforms
 from torch.utils.data import Subset, DataLoader
 from sklearn.metrics import f1_score
 from sklearn.model_selection import KFold
-import os
-import csv
-from datetime import datetime
 
 from adabelief_pytorch import AdaBelief
 from adamp import AdamP                 # also exposes SGDP if you ever need it
@@ -26,6 +38,34 @@ from experimental.diffgrad import diffgrad
 from experimental.cosmic import COSMIC
 from experimental.fused_exp import Experimental
 from experimental.exp2 import ExperimentalV2
+from experimental.fused_exp_logged import ExperimentalLogged
+from experimental.pulsegrad_enhanced import PulseGradEnhanced
+from experimental.pulsegrad_h2 import PulseGradH2
+from experimental.pulsegrad_wd import PulseGradWD
+from experimental.pulsegrad_boost import PulseGradBoost
+from experimental.pulsegrad_dual import PulseGradDual
+from experimental.pulsegrad_poly import PulseGradPoly
+from experimental.pulsegrad_h9 import PulseGradH9
+from experimental.pulsegrad_h10 import PulseGradH10
+from experimental.pulsegrad_h11 import PulseGradH11
+from experimental.pulsegrad_h12 import PulseGradH12
+from experimental.pulsegrad_h13 import PulseGradH13
+from experimental.pulsegrad_h14 import PulseGradH14
+from experimental.pulselion import PulseLion
+from experimental.pulsesophia import PulseSophia
+from experimental.pulselion_tuned import PulseLionStrong, PulseLionLinear, PulseLionAdaptive
+from experimental.pulsesophia_tuned import PulseSophiaAdaptive
+from experimental.pulseadam_adaptive import PulseAdamAdaptive
+from experimental.pulsesgd_adaptive import PulseSGDAdaptive
+from experimental.pulsediffgrad_adaptive import PulseDiffGradAdaptive
+from experimental.pulseadadelta_adaptive import PulseAdaDeltaAdaptive
+from experimental.pulsermsprop_adaptive import PulseRMSpropAdaptive
+from experimental.pulseamsgrad_adaptive import PulseAMSGradAdaptive
+from experimental.pulseadamw_adaptive import PulseAdamWAdaptive
+from experimental.pulseadabelief_adaptive import PulseAdaBeliefAdaptive
+from experimental.pulseadamp_adaptive import PulseAdamPAdaptive
+from experimental.pulsemadgrad_adaptive import PulseMADGradAdaptive
+from experimental.pulseadan_adaptive import PulseAdanAdaptive
 
 def get_dataset(dataset_name, transform, root='./data'):
     """
@@ -155,6 +195,32 @@ def get_optimizer(optimizer_name, model_params, lr):
         optimizer = optim.Adam(model_params, lr=lr)
     elif optimizer_name == 'experimental':
         optimizer = Experimental(model_params, lr=lr)
+    elif optimizer_name == 'experimental_logged':
+        optimizer = ExperimentalLogged(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_enhanced':
+        optimizer = PulseGradEnhanced(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_h2':
+        optimizer = PulseGradH2(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_wd':
+        optimizer = PulseGradWD(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_boost':
+        optimizer = PulseGradBoost(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_dual':
+        optimizer = PulseGradDual(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_poly':
+        optimizer = PulseGradPoly(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_h9':
+        optimizer = PulseGradH9(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_h10':
+        optimizer = PulseGradH10(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_h11':
+        optimizer = PulseGradH11(model_params, lr=lr)
+    elif optimizer_name == 'pulsegrad_h12':
+        optimizer = PulseGradH12(model_params, lr=lr, gamma_init=0.5, gamma_final=0.15, decay_rate=0.001)
+    elif optimizer_name == 'pulsegrad_h13':
+        optimizer = PulseGradH13(model_params, lr=lr, beta2_init=0.99, beta2_final=0.9999, decay_rate=0.001)
+    elif optimizer_name == 'pulsegrad_h14':
+        optimizer = PulseGradH14(model_params, lr=lr, gamma=0.0001)
     elif optimizer_name == 'experimentalv2':
         return ExperimentalV2(model_params, lr=lr, gamma=0.3)
     elif optimizer_name == 'diffgrad':
@@ -176,6 +242,18 @@ def get_optimizer(optimizer_name, model_params, lr):
     elif optimizer_name == 'lion':
         optimizer = Lion(model_params, lr=lr, weight_decay=1e-2)
 
+    elif optimizer_name == 'pulselion':
+        optimizer = PulseLion(model_params, lr=lr, gamma=0.3, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulselion_strong':
+        optimizer = PulseLionStrong(model_params, lr=lr, gamma=10.0, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulselion_linear':
+        optimizer = PulseLionLinear(model_params, lr=lr, gamma=1.0, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulselion_adaptive':
+        optimizer = PulseLionAdaptive(model_params, lr=lr, gamma=0.5, weight_decay=1e-2)
+
     elif optimizer_name == 'sgd':
         optimizer = optim.SGD(model_params, lr=lr)
 
@@ -189,10 +267,222 @@ def get_optimizer(optimizer_name, model_params, lr):
         # Sophia-G default hyper-params from authors
         optimizer = SophiaG(model_params, lr=lr, betas=(0.965, 0.99),
                             rho=0.04, weight_decay=1e-1)
+
+    elif optimizer_name == 'pulsesophia':
+        optimizer = PulseSophia(model_params, lr=lr, betas=(0.965, 0.99),
+                                rho=0.04, gamma=0.3, weight_decay=1e-1)
+
+    elif optimizer_name == 'pulsesophia_adaptive':
+        optimizer = PulseSophiaAdaptive(model_params, lr=lr, betas=(0.965, 0.99),
+                                        rho=0.04, gamma=0.5, weight_decay=1e-1)
+
+    elif optimizer_name == 'pulseadam_adaptive':
+        optimizer = PulseAdamAdaptive(model_params, lr=lr, betas=(0.9, 0.999),
+                                     gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulsesgd_adaptive':
+        optimizer = PulseSGDAdaptive(model_params, lr=lr, momentum=0.9,
+                                    gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulsediffgrad_adaptive':
+        optimizer = PulseDiffGradAdaptive(model_params, lr=lr, betas=(0.9, 0.999),
+                                         gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulseadadelta_adaptive':
+        optimizer = PulseAdaDeltaAdaptive(model_params, lr=lr, rho=0.9,
+                                          gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulsermsprop_adaptive':
+        optimizer = PulseRMSpropAdaptive(model_params, lr=lr, alpha=0.99, momentum=0,
+                                         gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulseamsgrad_adaptive':
+        optimizer = PulseAMSGradAdaptive(model_params, lr=lr, betas=(0.9, 0.999),
+                                         gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulseadamw_adaptive':
+        optimizer = PulseAdamWAdaptive(model_params, lr=lr, betas=(0.9, 0.999),
+                                       gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulseadabelief_adaptive':
+        optimizer = PulseAdaBeliefAdaptive(model_params, lr=lr, betas=(0.9, 0.999),
+                                           gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulseadamp_adaptive':
+        optimizer = PulseAdamPAdaptive(model_params, lr=lr, betas=(0.9, 0.999),
+                                       gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulsemadgrad_adaptive':
+        optimizer = PulseMADGradAdaptive(model_params, lr=lr, momentum=0.9,
+                                         gamma=0.5, weight_decay=1e-2)
+
+    elif optimizer_name == 'pulseadan_adaptive':
+        optimizer = PulseAdanAdaptive(model_params, lr=lr, betas=(0.98, 0.92, 0.99),
+                                      gamma=0.5, weight_decay=1e-2)
+
     else:
         raise ValueError(f"Unknown optimizer {optimizer_name}")
 
     return optimizer
+
+# ==============================================================================
+# Learning Rate Search Functions
+# ==============================================================================
+
+def get_config_key(dataset, model, optimizer, batch_size, epochs):
+    """
+    Generate a unique key for the configuration (excluding lr and k_folds).
+    """
+    config_str = f"{dataset}_{model}_{optimizer}_{batch_size}_{epochs}"
+    return hashlib.md5(config_str.encode()).hexdigest()
+
+def load_lr_cache(cache_file):
+    """
+    Load the LR search cache from JSON file.
+    Returns a dictionary mapping config keys to best learning rates.
+    """
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_lr_cache(cache, cache_file):
+    """
+    Save the LR search cache to JSON file.
+    """
+    os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+    with open(cache_file, 'w') as f:
+        json.dump(cache, f, indent=2)
+
+def perform_lr_search(dataset_name, model_name, optimizer_name, batch_size,
+                     epochs_per_lr, full_train_set, transform, num_classes, device, seed):
+    """
+    Perform learning rate search by testing 15 learning rates from 1e-4 to 1e-1.
+    Each LR is tested for 10 epochs on a single train/val split (no k-fold).
+    Returns the best learning rate based on validation accuracy.
+    """
+    print("\n" + "="*80)
+    print("LEARNING RATE SEARCH")
+    print("="*80)
+    print(f"Testing 15 learning rates from 1e-4 to 1e-1")
+    print(f"Each LR trained for {epochs_per_lr} epochs on a single train/val split")
+    print("="*80 + "\n")
+
+    # Generate 15 learning rates with uniform spacing within each order of magnitude
+    # 5 LRs between 1e-4 and 1e-3, 5 between 1e-3 and 1e-2, 5 between 1e-2 and 1e-1
+    lr_range_1 = np.linspace(1e-4, 1e-3, 5, endpoint=False)  # 1e-4 to 1e-3
+    lr_range_2 = np.linspace(1e-3, 1e-2, 5, endpoint=False)  # 1e-3 to 1e-2
+    lr_range_3 = np.linspace(1e-2, 1e-1, 5, endpoint=False)  # 1e-2 to 1e-1
+    lr_candidates = np.concatenate([lr_range_1, lr_range_2, lr_range_3])
+
+    # Create a single train/val split (80/20)
+    dataset_size = len(full_train_set)
+    indices = list(range(dataset_size))
+    split_idx = int(0.8 * dataset_size)
+
+    # Shuffle with fixed seed for reproducibility
+    rng = np.random.RandomState(seed)
+    rng.shuffle(indices)
+
+    train_idx = indices[:split_idx]
+    val_idx = indices[split_idx:]
+
+    train_subset = Subset(full_train_set, train_idx)
+    val_subset = Subset(full_train_set, val_idx)
+
+    train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_subset, batch_size=batch_size, shuffle=False, num_workers=0)
+
+    best_lr = None
+    best_val_acc = 0.0
+    lr_results = []
+
+    for i, lr in enumerate(lr_candidates, 1):
+        print(f"\n[{i}/15] Testing LR = {lr:.6f}")
+        print("-" * 40)
+
+        # Create fresh model and optimizer for this LR
+        model = get_model(model_name, num_classes).to(device)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = get_optimizer(optimizer_name, model.parameters(), lr)
+
+        # Train for epochs_per_lr epochs
+        best_acc_for_this_lr = 0.0
+
+        for epoch in range(1, epochs_per_lr + 1):
+            # Training phase
+            model.train()
+            train_loss = 0.0
+            train_correct = 0
+            train_total = 0
+
+            for inputs, labels in train_loader:
+                inputs, labels = inputs.to(device), labels.to(device)
+
+                optimizer.zero_grad()
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+
+                train_loss += loss.item() * inputs.size(0)
+                _, predicted = outputs.max(1)
+                train_total += labels.size(0)
+                train_correct += predicted.eq(labels).sum().item()
+
+            train_loss = train_loss / train_total
+            train_acc = 100.0 * train_correct / train_total
+
+            # Validation phase
+            model.eval()
+            val_loss = 0.0
+            val_correct = 0
+            val_total = 0
+
+            with torch.no_grad():
+                for inputs, labels in val_loader:
+                    inputs, labels = inputs.to(device), labels.to(device)
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
+
+                    val_loss += loss.item() * inputs.size(0)
+                    _, predicted = outputs.max(1)
+                    val_total += labels.size(0)
+                    val_correct += predicted.eq(labels).sum().item()
+
+            val_loss = val_loss / val_total
+            val_acc = 100.0 * val_correct / val_total
+
+            if val_acc > best_acc_for_this_lr:
+                best_acc_for_this_lr = val_acc
+
+            # Print progress for first, middle, and last epochs
+            if epoch == 1 or epoch == epochs_per_lr // 2 or epoch == epochs_per_lr:
+                print(f"  Epoch [{epoch}/{epochs_per_lr}] Val Acc: {val_acc:.2f}%")
+
+        print(f"  Best Val Acc: {best_acc_for_this_lr:.2f}%")
+
+        lr_results.append({
+            'lr': float(lr),
+            'best_val_acc': best_acc_for_this_lr
+        })
+
+        # Update best LR if this one is better
+        if best_acc_for_this_lr > best_val_acc:
+            best_val_acc = best_acc_for_this_lr
+            best_lr = lr
+
+    print("\n" + "="*80)
+    print("LEARNING RATE SEARCH COMPLETE")
+    print("="*80)
+    print(f"Best LR: {best_lr:.6f} (Val Acc: {best_val_acc:.2f}%)")
+    print("="*80 + "\n")
+
+    # Return best LR and all results for caching
+    return best_lr, lr_results
 
 def train_one_fold(model, train_loader, val_loader, criterion, optimizer, device, epochs):
     """
@@ -297,12 +587,14 @@ def main():
                         ],
                         help="Model architecture to use")
     parser.add_argument('--optimizer', type=str, default='adam',
-                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'diffgrad','adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'adahessian', 'sophia','experimentalv2', 'sgd', 'sgd_momentum', 'adamw'],
+                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'experimental_logged', 'pulsegrad_enhanced', 'pulsegrad_h2', 'pulsegrad_wd', 'pulsegrad_boost', 'pulsegrad_dual', 'pulsegrad_poly', 'pulsegrad_h9', 'pulsegrad_h10', 'pulsegrad_h11', 'pulsegrad_h12', 'pulsegrad_h13', 'pulsegrad_h14', 'diffgrad','adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'pulselion', 'pulselion_strong', 'pulselion_linear', 'pulselion_adaptive', 'adahessian', 'sophia', 'pulsesophia', 'pulsesophia_adaptive', 'pulseadam_adaptive', 'pulsesgd_adaptive', 'pulsediffgrad_adaptive', 'pulseadadelta_adaptive', 'pulsermsprop_adaptive', 'pulseamsgrad_adaptive', 'pulseadamw_adaptive', 'pulseadabelief_adaptive', 'pulseadamp_adaptive', 'pulsemadgrad_adaptive', 'pulseadan_adaptive', 'experimentalv2', 'sgd', 'sgd_momentum', 'adamw'],
                         help="Optimizer to use")
     parser.add_argument('--epochs', type=int, default=10, help="Number of training epochs")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size")
     parser.add_argument('--lr', type=float, default=0.001, help="Learning rate")
     parser.add_argument('--k_folds', type=int, default=5, help="Number of folds for K-Fold cross validation")
+    parser.add_argument('--lr_study', action='store_true',
+                        help="Perform learning rate search (15 LRs from 1e-4 to 1e-1, 10 epochs each)")
     args = parser.parse_args()
 
     # ------------------------------
@@ -338,6 +630,55 @@ def main():
     full_train_set, test_set, num_classes = get_dataset(args.dataset, transform)
 
     # ------------------------------
+    # Learning Rate Search (if requested)
+    used_lr = args.lr  # Default to user-provided LR
+
+    if args.lr_study:
+        lr_cache_file = "./results/lr_search_cache.json"
+        lr_cache = load_lr_cache(lr_cache_file)
+
+        # Generate config key for this experiment
+        config_key = get_config_key(args.dataset, args.model, args.optimizer,
+                                    args.batch_size, args.epochs)
+
+        # Check if LR for this config is already cached
+        if config_key in lr_cache:
+            used_lr = lr_cache[config_key]['best_lr']
+            print("\n" + "="*80)
+            print("USING CACHED LEARNING RATE")
+            print("="*80)
+            print(f"Configuration: {args.dataset}, {args.model}, {args.optimizer}")
+            print(f"Batch Size: {args.batch_size}, Epochs: {args.epochs}")
+            print(f"Cached LR: {used_lr:.6f}")
+            print("="*80 + "\n")
+        else:
+            # Perform LR search
+            print(f"\nNo cached LR found for this configuration. Performing LR search...")
+            best_lr, lr_results = perform_lr_search(
+                args.dataset, args.model, args.optimizer, args.batch_size,
+                epochs_per_lr=10, full_train_set=full_train_set,
+                transform=transform, num_classes=num_classes,
+                device=device, seed=seed
+            )
+            used_lr = best_lr
+
+            # Cache the result
+            lr_cache[config_key] = {
+                'dataset': args.dataset,
+                'model': args.model,
+                'optimizer': args.optimizer,
+                'batch_size': args.batch_size,
+                'epochs': args.epochs,
+                'best_lr': float(best_lr),
+                'lr_results': lr_results
+            }
+            save_lr_cache(lr_cache, lr_cache_file)
+            print(f"LR search results saved to {lr_cache_file}\n")
+
+    # Use the determined learning rate (either from search or user-provided)
+    print(f"Using Learning Rate: {used_lr:.6f}\n")
+
+    # ------------------------------
     # Setup K-Fold cross validation
     kfold = KFold(n_splits=args.k_folds, shuffle=True, random_state=seed)
 
@@ -368,7 +709,7 @@ def main():
         # Load a fresh model for each fold
         model = get_model(args.model, num_classes).to(device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = get_optimizer(args.optimizer, model.parameters(), args.lr)
+        optimizer = get_optimizer(args.optimizer, model.parameters(), used_lr)
 
         # Train for this fold
         best_acc, best_f1, best_acc_epoch, best_f1_epoch = train_one_fold(
@@ -423,7 +764,7 @@ def main():
         args.optimizer,
         args.epochs,
         args.batch_size,
-        args.lr,
+        used_lr,
         args.k_folds,
         f"{mean_acc:.4f}",
         f"{std_acc:.4f}",

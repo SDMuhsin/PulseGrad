@@ -4,8 +4,8 @@ echo "Beginning train_imageclassification.py sbatch script submissions."
 
 # Define dataset-model pairs based on task difficulty and model size
 declare -A pairs
-pairs["MNIST"]="squeezenet1_0"
-pairs["FMNIST"]="resnet50"
+#pairs["MNIST"]="squeezenet1_0"
+#pairs["FMNIST"]="resnet50"
 pairs["CIFAR10"]="densenet121"
 #pairs["CIFAR100"]="vit_b_16"
 #pairs["STL10"]="efficientnet_v2_s"
@@ -19,7 +19,14 @@ dataset_times["CIFAR100"]="4-00:00:00" # 3 days 4 hours
 #dataset_times["STL10"]="7-00:00:00" # Default for STL10, if uncommented
 
 # List of optimizers to loop through
-optimizers=( experimentalv2 ) #adabelief adamp madgrad adan lion ) #adagrad adadelta rmsprop amsgrad adam experimental diffgrad)
+optimizers=(
+    # Baseline optimizers
+    adagrad adadelta rmsprop amsgrad adam adabelief adamp madgrad adan lion sgd sgd_momentum adamw diffgrad sophia
+    # Pulse adaptive optimizers
+    pulseadam_adaptive pulsesgd_adaptive pulsediffgrad_adaptive pulselion_adaptive pulsesophia_adaptive
+    pulseadadelta_adaptive pulsermsprop_adaptive pulseamsgrad_adaptive pulseadamw_adaptive
+    pulseadabelief_adaptive pulseadamp_adaptive pulsemadgrad_adaptive pulseadan_adaptive
+)
 
 # Loop through each dataset-model pair
 for dataset in "${!pairs[@]}"; do
@@ -42,16 +49,16 @@ for dataset in "${!pairs[@]}"; do
             --chdir=/scratch/sdmuhsin/DiffGrad2 \
             --output=${optimizer}-${model_filename}-${dataset}-%N-%j.out \
             --wrap="
-                export TRANSFORMERS_CACHE=\"./downloads\"
-                export HF_HOME=\"./downloads\"
-                export TORCH_HOME=\"./downloads\"
+                export TRANSFORMERS_CACHE=\"./cache\"
+                export HF_HOME=\"./cache\"
+                export TORCH_HOME=\"./cache\"
                 module load python/3.10
                 module load arrow/16.1.0
                 source ./env/bin/activate
                 echo 'Environment loaded'
                 which python3
                 export PYTHONPATH=\"\$PYTHONPATH:\$(pwd)\"
-                python3 src/train_imageclassification.py --dataset=$dataset --model=$model --optimizer=$optimizer --epochs=100 --batch_size=64 --lr=0.001
+                python3 src/train_imageclassification.py --dataset=$dataset --model=$model --optimizer=$optimizer --epochs=100 --batch_size=64 --lr=0.001 --lr_study
             "
     done
 done
