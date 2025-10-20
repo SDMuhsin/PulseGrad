@@ -34,8 +34,11 @@ python3 -m pip install adamp                  # AdamP optimizer (includes SGDP)
 python3 -m pip install madgrad                # MADGRAD optimizer
 python3 -m pip install adan-pytorch           # Adan optimizer
 python3 -m pip install lion-pytorch           # Lion optimizer
-python3 -m pip install sophia-optimizer       # Sophia-G optimizer
+python3 -m pip install sophia-optimizer       # Sophia-G optimizer (note: buggy __init__.py in some versions)
 python3 -m pip install torch-optimizer        # Collection of optimizers (DiffGrad, etc.)
+
+# Note: sophia-optimizer v0.2.5 has a bug in __init__.py on some Python versions
+# The training code uses direct import (from sophia.sophia import SophiaG) to bypass this
 
 echo ""
 echo "✓ Installation complete!"

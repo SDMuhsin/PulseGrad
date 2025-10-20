@@ -30,7 +30,7 @@ from adamp import AdamP                 # also exposes SGDP if you ever need it
 import madgrad                         # madgrad.MADGRAD(...)
 from adan_pytorch import Adan
 from lion_pytorch import Lion
-from sophia import SophiaG             # Sophia-G variant from the paper
+from sophia.sophia import SophiaG      # Sophia-G variant (direct import bypasses buggy __init__)
 
 # Local experimental optimizers (ensure these modules are in your PYTHONPATH)
 from experimental.lance import LANCE
