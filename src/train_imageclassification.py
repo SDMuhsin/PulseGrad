@@ -5,6 +5,8 @@ import os
 import csv
 import json
 import hashlib
+import fcntl
+import time
 from datetime import datetime
 
 # Configure caching directories for offline operation
@@ -327,6 +329,162 @@ def get_optimizer(optimizer_name, model_params, lr):
     return optimizer
 
 # ==============================================================================
+# Thread-Safe File Locking Utilities
+# ==============================================================================
+
+def acquire_file_lock(file_handle, max_retries=100, retry_delay=0.1):
+    """
+    Acquire an exclusive lock on a file handle with retries.
+    Uses fcntl.flock for process-safe file locking.
+    """
+    for attempt in range(max_retries):
+        try:
+            fcntl.flock(file_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+        except IOError:
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+            else:
+                raise RuntimeError(f"Failed to acquire file lock after {max_retries} attempts")
+    return False
+
+def release_file_lock(file_handle):
+    """
+    Release the lock on a file handle.
+    """
+    fcntl.flock(file_handle.fileno(), fcntl.LOCK_UN)
+
+def locked_json_read(filepath):
+    """
+    Thread-safe JSON file read with file locking.
+    Returns the parsed JSON data or empty dict if file doesn't exist.
+    """
+    if not os.path.exists(filepath):
+        return {}
+
+    max_retries = 100
+    for attempt in range(max_retries):
+        try:
+            with open(filepath, 'r') as f:
+                acquire_file_lock(f)
+                try:
+                    data = json.load(f)
+                finally:
+                    release_file_lock(f)
+                return data
+        except (IOError, json.JSONDecodeError) as e:
+            if attempt < max_retries - 1:
+                time.sleep(0.1)
+            else:
+                # If we can't read after all retries, return empty dict
+                print(f"Warning: Failed to read {filepath} after {max_retries} attempts: {e}")
+                return {}
+    return {}
+
+def locked_json_write(filepath, data):
+    """
+    Thread-safe JSON file write with file locking.
+    Creates parent directory if it doesn't exist.
+    """
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+    # Use a temporary file and atomic rename for extra safety
+    temp_filepath = filepath + f".tmp.{os.getpid()}"
+
+    max_retries = 100
+    for attempt in range(max_retries):
+        try:
+            # Write to temporary file
+            with open(temp_filepath, 'w') as f:
+                acquire_file_lock(f)
+                try:
+                    json.dump(data, f, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())  # Ensure data is written to disk
+                finally:
+                    release_file_lock(f)
+
+            # Atomic rename
+            os.replace(temp_filepath, filepath)
+            return True
+        except IOError as e:
+            if attempt < max_retries - 1:
+                time.sleep(0.1)
+            else:
+                # Clean up temp file if it exists
+                if os.path.exists(temp_filepath):
+                    try:
+                        os.remove(temp_filepath)
+                    except:
+                        pass
+                raise RuntimeError(f"Failed to write {filepath} after {max_retries} attempts: {e}")
+    return False
+
+def locked_csv_append(filepath, header, row, dedup_columns=None, dedup_row=None):
+    """
+    Thread-safe CSV append with file locking and optional deduplication.
+
+    Args:
+        filepath: Path to CSV file
+        header: List of header column names
+        row: List of values to append
+        dedup_columns: List of column indices to use for deduplication (if None, no dedup)
+        dedup_row: List of values to match for deduplication (if None, no dedup)
+    """
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+    max_retries = 100
+    for attempt in range(max_retries):
+        try:
+            # Create file if it doesn't exist
+            file_exists = os.path.exists(filepath)
+
+            # Open in read-write mode to allow locking and both reading and writing
+            mode = 'r+' if file_exists else 'w+'
+            with open(filepath, mode, newline='') as f:
+                acquire_file_lock(f)
+                try:
+                    rows = []
+
+                    # Read existing content if file exists
+                    if file_exists and os.path.getsize(filepath) > 0:
+                        f.seek(0)
+                        reader = csv.reader(f)
+                        existing_header = next(reader, None)
+
+                        # Read all rows and apply deduplication if requested
+                        for existing_row in reader:
+                            # Skip row if it matches dedup criteria
+                            if dedup_columns and dedup_row:
+                                if all(existing_row[idx] == str(dedup_row[idx])
+                                      for idx in dedup_columns if idx < len(existing_row)):
+                                    continue  # Skip this row
+                            rows.append(existing_row)
+
+                    # Append new row
+                    rows.append(row)
+
+                    # Write everything back
+                    f.seek(0)
+                    f.truncate()
+                    writer = csv.writer(f)
+                    writer.writerow(header)
+                    writer.writerows(rows)
+                    f.flush()
+                    os.fsync(f.fileno())  # Ensure data is written to disk
+
+                finally:
+                    release_file_lock(f)
+            return True
+
+        except IOError as e:
+            if attempt < max_retries - 1:
+                time.sleep(0.1)
+            else:
+                raise RuntimeError(f"Failed to write CSV {filepath} after {max_retries} attempts: {e}")
+    return False
+
+# ==============================================================================
 # Learning Rate Search Functions
 # ==============================================================================
 
@@ -339,24 +497,16 @@ def get_config_key(dataset, model, optimizer, batch_size, epochs):
 
 def load_lr_cache(cache_file):
     """
-    Load the LR search cache from JSON file.
+    Load the LR search cache from JSON file using thread-safe locking.
     Returns a dictionary mapping config keys to best learning rates.
     """
-    if os.path.exists(cache_file):
-        try:
-            with open(cache_file, 'r') as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
+    return locked_json_read(cache_file)
 
 def save_lr_cache(cache, cache_file):
     """
-    Save the LR search cache to JSON file.
+    Save the LR search cache to JSON file using thread-safe locking.
     """
-    os.makedirs(os.path.dirname(cache_file), exist_ok=True)
-    with open(cache_file, 'w') as f:
-        json.dump(cache, f, indent=2)
+    locked_json_write(cache_file, cache)
 
 def perform_lr_search(dataset_name, model_name, optimizer_name, batch_size,
                      epochs_per_lr, full_train_set, transform, num_classes, device, seed):
@@ -744,7 +894,7 @@ def main():
     print(f"Best F1 Epoch: {mean_f1_epoch:.2f} ± {std_f1_epoch:.2f}")
 
     # ------------------------------
-    # Write results to CSV
+    # Write results to CSV (thread-safe)
     results_dir = "./results"
     os.makedirs(results_dir, exist_ok=True)
     csv_file = os.path.join(results_dir, "classification_results.csv")
@@ -763,10 +913,10 @@ def main():
         args.dataset,
         args.model,
         args.optimizer,
-        args.epochs,
-        args.batch_size,
-        used_lr,
-        args.k_folds,
+        str(args.epochs),
+        str(args.batch_size),
+        str(used_lr),
+        str(args.k_folds),
         f"{mean_acc:.4f}",
         f"{std_acc:.4f}",
         f"{mean_f1:.4f}",
@@ -777,35 +927,12 @@ def main():
         f"{std_f1_epoch:.2f}",
     ]
 
-    file_exists = os.path.isfile(csv_file)
-    rows = []
+    # Use thread-safe CSV append with deduplication
+    # Dedup on columns: dataset(1), model(2), optimizer(3), epochs(4), batch_size(5), lr(6), k_folds(7)
+    dedup_columns = [1, 2, 3, 4, 5, 6, 7]
+    dedup_values = [args.dataset, args.model, args.optimizer, args.epochs, args.batch_size, used_lr, args.k_folds]
 
-    # If file exists, read it in and filter out any row that has exactly the same combo of
-    # [dataset, model, optimizer, epochs, batch_size, lr, k_folds]
-    if file_exists:
-        with open(csv_file, 'r') as f:
-            reader = csv.reader(f)
-            existing_header = next(reader, None)  # Read header row
-            for existing_row in reader:
-                if (existing_row[1] == args.dataset and
-                    existing_row[2] == args.model and
-                    existing_row[3] == args.optimizer and
-                    existing_row[4] == str(args.epochs) and
-                    existing_row[5] == str(args.batch_size) and
-                    existing_row[6] == str(args.lr) and
-                    existing_row[7] == str(args.k_folds)):
-                    # Skip this row to overwrite
-                    continue
-                rows.append(existing_row)
-
-    # Append the newly computed row
-    rows.append(row)
-
-    # Write everything back, including the header
-    with open(csv_file, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        writer.writerows(rows)
+    locked_csv_append(csv_file, header, row, dedup_columns=dedup_columns, dedup_row=dedup_values)
 
     print(f"\nResults saved (overwritten if matching combo) to {csv_file}")
 
