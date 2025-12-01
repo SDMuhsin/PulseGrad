@@ -1,6 +1,9 @@
 # Experimental optimizers
 from experimental.fused_exp_logged import ExperimentalLogged
 
+# Directional Consistency Pulse
+from experimental.dcp_sgd import DCPSGD
+
 # Adaptive Pulse Optimizers
 from experimental.pulseadam_adaptive import PulseAdamAdaptive
 from experimental.pulsesgd_adaptive import PulseSGDAdaptive

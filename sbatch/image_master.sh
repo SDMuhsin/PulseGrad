@@ -6,7 +6,7 @@ echo "Beginning train_imageclassification.py sbatch script submissions."
 declare -A pairs
 #pairs["MNIST"]="squeezenet1_0"
 #pairs["FMNIST"]="resnet50"
-#pairs["CIFAR10"]="densenet121"
+pairs["CIFAR10"]="densenet121"
 pairs["CIFAR100"]="vit_b_16"
 #pairs["STL10"]="efficientnet_v2_s"
 
@@ -14,18 +14,19 @@ pairs["CIFAR100"]="vit_b_16"
 declare -A dataset_times
 dataset_times["MNIST"]="2-00:00:00"  # 1 day 4 hours
 dataset_times["FMNIST"]="2-00:00:00" # Default for FMNIST, can be adjusted
-dataset_times["CIFAR10"]="7-00:00:00" # 7 days, 
-dataset_times["CIFAR100"]="7-00:00:00" # 3 days 4 hours
+dataset_times["CIFAR10"]="2-00:00:00" # 7 days, 
+dataset_times["CIFAR100"]="3-00:00:00" # 3 days 4 hours
 #dataset_times["STL10"]="7-00:00:00" # Default for STL10, if uncommented
 
 # List of optimizers to loop through
 optimizers=(
     # Baseline optimizers
-    adagrad adadelta rmsprop amsgrad adam adabelief adamp madgrad adan lion sgd sgd_momentum adamw diffgrad sophia
+    #adagrad adadelta rmsprop amsgrad adam adabelief adamp madgrad adan lion sgd sgd_momentum adamw diffgrad sophia
     # Pulse adaptive optimizers
-    pulseadam_adaptive pulsesgd_adaptive pulsediffgrad_adaptive pulselion_adaptive pulsesophia_adaptive
-    pulseadadelta_adaptive pulsermsprop_adaptive pulseamsgrad_adaptive pulseadamw_adaptive
-    pulseadabelief_adaptive pulseadamp_adaptive pulsemadgrad_adaptive pulseadan_adaptive
+    #pulseadam_adaptive pulsesgd_adaptive pulsediffgrad_adaptive pulselion_adaptive pulsesophia_adaptive
+    #pulseadadelta_adaptive pulsermsprop_adaptive pulseamsgrad_adaptive pulseadamw_adaptive
+    #pulseadabelief_adaptive pulseadamp_adaptive pulsemadgrad_adaptive pulseadan_adaptive
+    dcp_sgd
 )
 
 # Loop through each dataset-model pair

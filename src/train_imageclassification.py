@@ -61,6 +61,7 @@ from experimental.pulsesophia_tuned import PulseSophiaAdaptive
 from experimental.pulseadam_adaptive import PulseAdamAdaptive
 from experimental.pulsesgd_adaptive import PulseSGDAdaptive
 from experimental.pulsediffgrad_adaptive import PulseDiffGradAdaptive
+from experimental.dcp_sgd import DCPSGD
 from experimental.pulseadadelta_adaptive import PulseAdaDeltaAdaptive
 from experimental.pulsermsprop_adaptive import PulseRMSpropAdaptive
 from experimental.pulseamsgrad_adaptive import PulseAMSGradAdaptive
@@ -262,6 +263,24 @@ def get_optimizer(optimizer_name, model_params, lr):
 
     elif optimizer_name == 'sgd_momentum':
         optimizer = optim.SGD(model_params, lr=lr, momentum=0.9)
+
+    elif optimizer_name == 'dcp_sgd':
+        optimizer = DCPSGD(model_params, lr=lr, gamma=0.1, alpha=2.0, momentum=0)
+
+    elif optimizer_name == 'dcp_sgd_g03':
+        optimizer = DCPSGD(model_params, lr=lr, gamma=0.3, alpha=2.0, momentum=0)
+
+    elif optimizer_name == 'dcp_sgd_g05':
+        optimizer = DCPSGD(model_params, lr=lr, gamma=0.5, alpha=2.0, momentum=0)
+
+    elif optimizer_name == 'dcp_sgd_a15':
+        optimizer = DCPSGD(model_params, lr=lr, gamma=0.1, alpha=1.5, momentum=0)
+
+    elif optimizer_name == 'dcp_sgd_a30':
+        optimizer = DCPSGD(model_params, lr=lr, gamma=0.1, alpha=3.0, momentum=0)
+
+    elif optimizer_name == 'dcp_sgd_momentum':
+        optimizer = DCPSGD(model_params, lr=lr, gamma=0.1, alpha=2.0, momentum=0.9)
 
     elif optimizer_name == 'adamw':
         optimizer = optim.AdamW(model_params, lr=lr, weight_decay=1e-2)
@@ -738,7 +757,7 @@ def main():
                         ],
                         help="Model architecture to use")
     parser.add_argument('--optimizer', type=str, default='adam',
-                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'experimental_logged', 'pulsegrad_enhanced', 'pulsegrad_h2', 'pulsegrad_wd', 'pulsegrad_boost', 'pulsegrad_dual', 'pulsegrad_poly', 'pulsegrad_h9', 'pulsegrad_h10', 'pulsegrad_h11', 'pulsegrad_h12', 'pulsegrad_h13', 'pulsegrad_h14', 'diffgrad','adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'pulselion', 'pulselion_strong', 'pulselion_linear', 'pulselion_adaptive', 'adahessian', 'sophia', 'pulsesophia', 'pulsesophia_adaptive', 'pulseadam_adaptive', 'pulsesgd_adaptive', 'pulsediffgrad_adaptive', 'pulseadadelta_adaptive', 'pulsermsprop_adaptive', 'pulseamsgrad_adaptive', 'pulseadamw_adaptive', 'pulseadabelief_adaptive', 'pulseadamp_adaptive', 'pulsemadgrad_adaptive', 'pulseadan_adaptive', 'experimentalv2', 'sgd', 'sgd_momentum', 'adamw'],
+                        choices=['adagrad', 'adadelta', 'rmsprop', 'amsgrad', 'adam', 'experimental', 'experimental_logged', 'pulsegrad_enhanced', 'pulsegrad_h2', 'pulsegrad_wd', 'pulsegrad_boost', 'pulsegrad_dual', 'pulsegrad_poly', 'pulsegrad_h9', 'pulsegrad_h10', 'pulsegrad_h11', 'pulsegrad_h12', 'pulsegrad_h13', 'pulsegrad_h14', 'diffgrad','adabelief', 'adamp', 'madgrad', 'adan', 'lion', 'pulselion', 'pulselion_strong', 'pulselion_linear', 'pulselion_adaptive', 'adahessian', 'sophia', 'pulsesophia', 'pulsesophia_adaptive', 'pulseadam_adaptive', 'pulsesgd_adaptive', 'pulsediffgrad_adaptive', 'pulseadadelta_adaptive', 'pulsermsprop_adaptive', 'pulseamsgrad_adaptive', 'pulseadamw_adaptive', 'pulseadabelief_adaptive', 'pulseadamp_adaptive', 'pulsemadgrad_adaptive', 'pulseadan_adaptive', 'experimentalv2', 'sgd', 'sgd_momentum', 'dcp_sgd', 'dcp_sgd_g03', 'dcp_sgd_g05', 'dcp_sgd_a15', 'dcp_sgd_a30', 'dcp_sgd_momentum', 'adamw'],
                         help="Optimizer to use")
     parser.add_argument('--epochs', type=int, default=10, help="Number of training epochs")
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size")
