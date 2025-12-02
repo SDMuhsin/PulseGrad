@@ -44,7 +44,7 @@ for dataset in "${!pairs[@]}"; do
             --nodes=1 \
             --ntasks-per-node=1 \
             --cpus-per-task=2 \
-            --gpus=1 \
+            --gpus=nvidia_h100_80gb_hbm3_2g.20gb:1 \
             --mem=16000M \
             --time=$job_time \
             --output=./logs/${optimizer}-${model_filename}-${dataset}-%N-%j.out \
